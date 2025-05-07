@@ -1,4 +1,7 @@
 # Setting -----------------------------------
+
+## Gitで管理しているなら、Pullして、最新版をローカルにアップデートしてから始めること!!
+
 rm(list = ls())
 
 setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")

@@ -1,0 +1,1242 @@
+---
+title: "Phyloseq_RawData_Bacteria_PreProcess"
+---
+
+# Reference & Memo
+
+\[R Package\] [Scales](https://scales.r-lib.org/)
+
+[食品微生物学（検査と制御方法）｜基礎と最新情報を解説｜木村　凡](https://foodmicrob.com/16s-amplicon-sequencing-food-microbiology/)
+
+[Phyloseq HP](https://joey711.github.io/phyloseq/)
+
+<https://ushio-ecology-blog.blogspot.com/2021/04/20210428blogger0015.html>
+
+[Bioconductor::MicrobiotaProcess](https://www.bioconductor.org/packages/release/bioc/html/MicrobiotaProcess.html)
+
+[Introduction to MicrobiotaProcess](https://bioconductor.org/packages/devel/bioc/vignettes/MicrobiotaProcess/inst/doc//MicrobiotaProcess.html#biomarker-discovery)
+
+[Github_MicrobiotaProcess](https://github.com/YuLab-SMU/MicrobiotaProcess)
+
+[ggtreeExtra HP](https://bioconductor.org/packages/release/bioc/vignettes/ggtreeExtra/inst/doc/ggtreeExtra.html)
+
+[Metagenomic biomarker discovery and explanation](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2011-12-6-r60)
+
+::: callout-note
+## DataLocation
+
+ASVsTable (何も処理をしていないTable)
+
+'\~/Library/CloudStorage/GoogleDrive-saito2022\@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ASVsTable.csv'
+:::
+
+# NGS Analysis Flow
+
+::: callout-note
+## [Filtering]{.mark-cyan}
+
+以下、論文で使われている手法
+
+・相対存在量 1% \>\
+・平均相対存在量 10\^-5 \>\
+・Prevalenceで、sampleの内、?でしか確認されていないASVs(OTUs)を排除\
+・処理区(農薬散布 or 病害発生サンプル)で存在が確認されないASVsは排除など
+
+→ Filteringの基準は、論文によって様々で、おそらくその時々で都合がいいように解釈??
+
+Q: What is the difference between averaging, homogenization and standardization?
+
+Averaging and homogenization both refer to the random sampling of sequences from different samples according to a certain rule (e.g., we go by the minimum number of sequences) so that the number of sequences in different samples is the same.
+
+Standardization is generally a Z-value calculation for data that fluctuates over a large range, scaling the data so that it falls into a small specific interval that is easy to display in a graph.
+:::
+
+::: callout-note
+## 多様性評価
+
+→ 数千のASVs(OTU)が検出されるため、各ASVsに着目するだけでなく、サンプル内の微生物叢(ASVs全体)を構造や組成といった観点から、評価するため\
+これまで先行研究では、有機肥料が微生物数や叢を活性化させて、病害発生を抑制するなど報告されているが、ある特定の微生物(細菌・糸状菌)が密接に病害発生に関わっている可能性もあるが、それよりも複数の微生物同士が複雑に関わり合って、病原菌の感染が、競合的に劣り、病害発生に至っていない可能性もあるため\
+この複雑性を簡単に統計的にも科学的にも評価するのは、不可能に近いことを前提に置いた上で、微生物叢解析の論文などを読む方が良い。解析は、著者の主観も入ることもあり、批判的な視点で読むこと
+
+・β多様性(Tuley HSD検定)
+
+・The Shannon index curves & Rarefaction curves (b) of the bacterial community
+
+Differences in fungal and prokaryotic community composition were tested through permutational multivariate analysis of variance (PERMANOVA) with the ‘adonis2’ function on Bray-Curtis distances in the R package vegan \[45\]
+:::
+
+::: callout-note
+## 群集構造の評価 (community composition)
+
+・PCoA → 調査したSample数(土壌サンプル(eDNA))が多い時には、非常に有効だが、サンプル数が少ない場合は、解析の前提が成立しないこともあるので注意
+
+・NMDS(ANOSIM\[vegan\]で有意差検定
+
+・Differences in fungal and prokaryotic community composition were tested through permutational multivariate analysis of variance (PERMANOVA) with the ‘adonis2’ function on Bray-Curtis distances in the R package vegan
+:::
+
+::: callout-note
+## Differentially abundant taxa
+
+[**有意に存在量が異なる分類群(ASVs)の探索**]{.mark-blue}
+
+・相対存在量の比較(one-way ANOVA, LSD)\
+→ 主要な分類群の特徴を探索
+
+・ランダムフォレストモデルで、農薬散布によって変動した微生物叢に反応した分類群(ASVs)を予測\
+We built random forest regression models to test the effect of altered prokaryote abundance through fungal diversity by using prokaryote abundances to predict fungal diversity.
+
+Random forest models were generated with the‘randomForest’ function in the randomForest R package \[49\]. To remove redundant features and avoid over tting models, we removed redundant OTUs with the‘Boruta’ function in the package Boruta \[50\].
+
+The method performs a top-down search for relevant OTUs by comparing the importance of the original OTUs from those selected at random. Models were tuned to achieve the lowest stable out-of-bag (OOB) error estimate possible, and the best mtry value (number of OTUs sampled at random in the entire pool for each tree at each split) was selected using the‘tuneRF’ function in randomForest R package.
+
+・Fungal OTUs were determined to be signicant if the W value was greater than 70% of the taxa tested based on Wilcoxon ranked sum test between additive log-ratio transformed data and a Benjamini- Hochbergj adjusted P value (α = 0.05) \[47\].
+
+・ANCOM（Analysis of Composition of Microbiomes）
+
+✅ 定義 ANCOMとは、微生物群集における群間の差異（例えば処理区と対照区など）を、相対的なデータ（compositional data）に基づいて解析する方法です。 特に、16S rRNAシーケンスなどのデータでは、総量（library size）に制限があるため、得られるデータは「相対的」なものであることから、通常の統計解析では誤差やバイアスが生じやすくなります。\
+ANCOMはその点を考慮し、相対データに適した方法で「どの分類群（菌種や属など）が有意に異なるか」を検出する手法として開発されました。
+
+BioManeger::ANCOMBS package
+
+・LEfSe解析 → 比較したい処理区で、最低でも5つ以上はサンプルが必要なので、注意!!!
+:::
+
+# Paper Information
+
+::: callout-note
+## Waste not, want not: revisiting the analysis that called into question the practice of rarefaction
+
+they removed rare and low-prevalence OTUs in two steps.
+
+First, they removed any OTUs whose total abundance was less than three across all 80 samples and that did not appear in at least three samples.
+
+Second, they removed any OTUs that did not have more than one sequence in more than 5% of the 80 samples (i.e., four samples) and that did not have a total abundance across the 80 samples greater than one half of the number of samples in each community type (i.e., 20)
+
+Relative abundance data were used to calculate Bray-Curtis, Unweighted UniFrac, and Weighted UniFrac distances
+
+【Discussion】
+
+It is worth commenting on WNWN’s advice to use DESeq’s Variance Stabilization or edgeR’s Upper-Quartile Log-fold Change normalization strategies. These methods have been adopted from gene expression analysis to microbiome analysis.
+
+Gene expression analysis implicitly assumes that all samples have the same genes. While this assumption might be valid when comparing host gene expression in healthy and diseased tissues from a cohort of patients, it does not generalize to those patients’ microbiota.
+
+Microbial populations are highly patchy in their distribution. Thus, a zero count for gene expression is more likely to represent a gene below the limit of detection, whereas a zero count for a microbiome analysis is more likely to represent the true absence of the OTU.
+
+In fact, zeroes are less common in gene expression analyses. However, because microbiome studies have so many zeroes, it is necessary to add a pseudo-count to all OTUs for both the edgeR- and DESeq-based normalizations (L443 and L487, respectively).
+
+In WNWN, a pseudo-count of 1 was used. However, this value is arbitrary and the results can vary based on the choice of pseudo-count and the patchiness of the communities being analyzed.
+
+Since WNWN was published, compositional approaches have been proposed to account for uneven sequencing and to provide improved interpretability (14, 16–18, 44, 45). However, these methods also often require the use of pseudo-counts. Rarefaction is preferred to these alternatives.
+
+[The choice of distance metric is a complicated question]{.mark-green} → Note_KeyNotes (SCISPACE)を参照 → Rarefactionが、サンプルで異なるシーケンス深度の影響を制御する唯一の方法であるかもしれない...、相対存在量の利用にも注意が必要 → Referenceの論文も読んでみる
+:::
+
+::: callout-note
+## [Non-target impacts of fungicide disturbance on phyllosphere yeasts in conventional and no-till management](https://www.nature.com/articles/s43705-022-00103-w#Sec15)
+
+**\[Suppliments\]**
+
+Import and Preprocessing in R. Data were imported into R 4.0.3 \[17\], and the R packages phyloseq 1.24.2 \[18\] and vegan 2.5.3 \[19\] were used for most analyses.
+
+**Samples with low sequencing coverage (less than 1000 reads) were removed from the analysis.**
+
+Contaminant OTUs (i.e., those prevalent in negative extraction controls) were removed with the R package decontam \[20\].
+
+Before normalization, richness was assessed for Prokaryotes and Fungi in the leaves and roots of each crop using the ‘estimate_richness’ function in the phyloseq package.
+
+Results of alpha diversity analyses were plotted using the ‘ggplot2’ package \[21\].
+
+Then, sample read counts were normalized using the cumulative sum scaling technique within the metagenomeSeq R package \[22\].
+
+**\[Statistical analysis:\]**
+
+For differential abundance analysis, fungal OTUs (fOTU, hereafter) with a [**mean relative abundance less than 10\^−5**]{.underline} and [**fOTUs with zeros present in 95% samples**]{.underline} were discarded from the analysis to avoid detecting fOTUs as signi cantly different based on stochasticity.\
+[**In addition, fOTUs that were never present in fungicide treated plots were not included.**]{.underline}\
+→ Prevalence + 相対存在量でFiltering + 農薬処理区で存在していないOTUsは除外して、実施
+:::
+
+::: callout-note
+## MicrobiotaProcess: A comprehensive R package for deep mining microbiome
+:::
+
+::: callout-note
+## Non-target impacts of fungicide disturbance on phyllosphere yeasts in conventional and no-till management
+
+\[Statistical analysis:\]
+
+Differences in fungal and prokaryotic community composition were tested through permutational multivariate analysis of variance (PERMANOVA) with the ‘adonis2’ function on Bray-Curtis distances in the R package vegan
+
+Differentially abundant taxa resulting from fungicide application were identi ed by comparing fungicide treated plots to control plots through an analysis of the composition of microbiomes (ANCOM v 2.1)\
+**→ 処理区に必要なサンプル数が5つ以上**\
+【Analysis of composition of microbiomes: a novel method for studying microbial composition】
+:::
+
+# Chunk Options & SetDirectory
+
+```{r}
+#| label: ChunkOption
+#| include: true
+#| message: false
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
+
+library("MicrobiotaProcess")
+library("phyloseq")
+library("dplyr")
+library("purrr")
+library("ggplot2")
+library("scales")
+
+# https://astrobiomike.github.io/amplicon/dada2_workflow_ex
+
+```
+
+# MergeingMethods:
+
+::: callout-note
+MergingMethods
+
+Merging methods include `merge_taxa` and `merge_samples`, intended for merging specific OTUs or samples, respectively.
+
+There is also the `merge_phyloseq` function for a complete merge of two or more phyloseq-objects (or a phyloseq-object and one or more separate components). For example, the following code merges the first 5 OTUs in the Chlamydiae-only dataset.
+
+**分類レベルの統一**
+
+OTU(or ASVs)は通常、**できるだけ細かい分類（種レベルなど）** で分けられるが、場合によって、**上位分類（属レベルや科レベル）で解析を行う方が適している** ことがある。
+
+> 属や科で、RelativeAbundunceをplotする場合などに利用する
+
+✅ **特定の分類レベル（例: 属レベル）での解析を行うために OTU を統合する**
+
+-   例: **同じ属 (`Genus`) に属する OTU をまとめる**
+
+-   例: **門 (`Phylum`) やクラス (`Class`) でデータを整理する**
+
+> **🔹 例えば**
+>
+> -   `OTU_1` → *Bacteroides fragilis*
+>
+> -   `OTU_2` → *Bacteroides vulgatus*
+>
+>     → **これらを "Bacteroides 属" として統合する、つまり上位の分類レベルで比較したい場合に、使用する、特定のASVsを統合する場合に使用する**
+>
+>     → 全ての属を統合するなら、以下のように分類単位を指定すれば良い\
+>     `tax_glom(physeqオブジェクト, taxrank = "Family", NArm = true/false)`
+>
+>     → [**統合後は、統合した分類レベル以降は、NAで表示される**]{.mark-blue}
+
+------------------------------------------------------------------------
+
+`data("GlobalPatterns")`
+
+`GP.chl = subset_taxa(GlobalPatterns, Phylum=="Chlamydiae") GP.chl = prune_samples(sample_sums(GP.chl)>=20, GP.chl)`
+
+`GP.chl.merged = merge_taxa(GP.chl, taxa_names(GP.chl)[1:5])`
+
+`ExportCSVData_GP.chl <- cbind(GP.chl@otu_table@.Data, GP.chl@tax_table@.Data)`
+
+`write.csv(ExportCSVData_GP.chl, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData_GP.chl.csv", row.names = TRUE)`
+
+`ExportCSVData_GP.chl.merged <- cbind(GP.chl.merged@otu_table@.Data, GP.chl.merged@tax_table@.Data)`
+
+`write.csv(ExportCSVData_GP.chl.merged, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData_GP.chl.merged.csv", row.names = TRUE)`
+
+統合前
+
+![GP.chl](Phyloseq_RawData_Bac_images/tax_glom_v1.png)
+
+統合後
+
+24341(ASVs)に統合され、リード数が合計される
+
+![GP.chl.merge](Phyloseq_RawData_Bac_images/tax_glom_v2.png)
+:::
+
+# PreProcess Methods
+
+## PreProcess Methods Scripts
+
+## Prevalence filtering:
+
+```{r}
+#| label: Prevalence filtering
+#| eval: false
+#| Include: false
+
+
+# Sample(Bac1~9)において、各ASVsが出現したSample数(存在頻度)を出力
+# taxa_are_rows → ASVsが行が列かどうかを確認
+prev0 = apply(X = otu_table(PhyseqData),
+              MARGIN = ifelse(taxa_are_rows(PhyseqData), yes = 1, no = 2),
+              FUN = function(x){sum(x > 0)})
+
+# DataFrameの作成
+prevdf = data.frame(Prevalence = prev0,
+                    TotalAbundance = taxa_sums(PhyseqData),
+                    tax_table(PhyseqData))
+
+# 全ASVsのベクトル(ID)を取り出す → TotalReads(ASVs) > 10でフィルタリング
+# keep_taxa <- taxa_names(PhyseqData)[taxa_sums(PhyseqData) >= 10]
+# ps_filt <- prune_taxa(keep_taxa, PhyseqData)
+
+
+# 門(Phylum)レベルで、tableを出力、各Phylumレベルで分類されたベクトルに対して、[ASVs数>5]でFiltering
+# つまり、ASVsが全Sampleの中で、5回以上出現していないといけない[ASVs1~5 = "Pseudomas"]的な
+keepPhyla = table(prevdf$Phylum)[(table(prevdf$Phylum) > 5)]
+
+prevdf1 = subset(prevdf, Phylum %in% names(keepPhyla))
+
+# 全sample数のうち、何sampleでASVsが出現していれば、良いかの基準を設定
+# 0.1の割合だと、9sampleの場合、1sampleで出現していればいいことになるため、1で設定
+prevalenceThreshold = 1
+prevalenceThreshold
+
+
+# Execute prevalence filter, using `prune_taxa()` function
+ps1 = prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
+ps1
+
+
+ps2 = subset_taxa(ps1, Phylum %in% names(keepPhyla))
+ps2
+
+Taxa_prevalence_total_counts <- 
+    ggplot(prevdf1, aes(TotalAbundance, Prevalence, color = Phylum)) +
+    geom_hline(yintercept = prevalenceThreshold, alpha = 0.5, linetype = 2) +
+    geom_point(size = 2, alpha = 0.7) +
+    scale_y_log10() + scale_x_log10() +
+    xlab("Total Abundance") +
+    facet_wrap(~Phylum) +
+    theme(legend.position = "none")
+
+Taxa_prevalence_total_counts
+
+# save(Taxa_prevalence_total_counts,
+#      file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotPhyloseqData/Taxa_prevalence_total_counts.RData")
+
+
+## Agglomerate closely related taxa ----------
+
+
+# rank_names(PhyseqData)
+# 
+# # ps2は、フィルタリングされてきたphyseqObjects
+# ID <- rank_names(PhyseqData)
+# for (i in ID) {
+#     print(length(get_taxa_unique(ps2, taxonomic.rank = i)))
+# }
+# 
+# ps3 = tax_glom(ps2, taxrank = "Genus")
+
+
+## Abundance value transformation ------------
+
+# meltphyseq = psmelt(ps3)
+# meltphyseq_v1 <- meltphyseq |> filter(Phylum == "Pseudomonadota")
+
+# write.csv(meltphyseq_v1, 
+#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/meltphyseq.csv")
+
+# orders <- unique(meltphyseq$Order)
+# plot_list <- list()
+# 
+# for (order in orders) {
+#     filt <- meltphyseq |> filter(Order == order)
+#     
+#     p <- ggplot(data = filt, mapping = aes(x = dps, y = Abundance)) +
+#         # バイオリンプロットの設定
+#         geom_violin(aes(fill = dps), alpha = 0.3, position = position_nudge(x = 0.1)) +  # バイオリンを少しずらす
+#         # ポイントの設定
+#         geom_point(aes(color = Sample.Name), size = 3, alpha = 0.8) + 
+#         # ポイントの色をSample.Nameに基づいて変更
+#         ylab(paste(order)) +  # y軸ラベルにOrder名を使用
+#         scale_y_log10() +  # y軸をログスケール
+#         scale_x_continuous(breaks = c(0, 3, 7)) +  # x軸のラベル設定
+#         theme_minimal()  # グラフのテーマを設定
+#     
+#     # プロットをリストに格納
+#     plot_list[[order]] <- p
+# }
+
+
+## 最初のプロットを表示
+# print(plot_list[[1]])
+# 
+# length(get_taxa_unique(ps2, taxonomic.rank = "Phylum"))
+
+
+# prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
+# ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
+# write.csv(ExportCSVData, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData.csv",
+#           row.names = TRUE)
+
+# Remove taxa not seen more than 3 times in at least 20% of the samples. This protects against an OTU with small mean & trivially large C.V.
+# filter_taxa(PhyseqData, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+
+
+# Standardize abundances to the median sequencing depth
+# sample間で異なるリード数(シーケンス深度)を一致させるため
+# total = median(sample_sums(physeqData))
+# standf = function(x, t=total) round(t * (x / sum(x)))
+# physeqData_sd = transform_sample_counts(physeqData, standf)
+
+
+# Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
+# physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
+
+
+```
+
+## Filtering Methods:
+
+```{r}
+#| label: PreProcess & Plot & save
+#| eval: true
+#| Include: false
+#| out-width: 90%
+#| fig-align: center
+
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData.RData")
+
+PhyseqData
+MetaData
+track
+
+colors <- c(
+    "#1b9e77",  # 緑系（濃）
+    "#d95f02",  # オレンジ系
+    "#7570b3",  # 青紫系
+    "#e7298a",  # ピンク系（明）
+    "#66a61e",  # 黄緑系
+    "#e6ab02",  # 黄土色
+    "#a6761d",  # 茶色
+    "#666666",  # グレー（濃）
+    
+    "#8dd3c7",  # 薄い青緑
+    "#ffffb3",  # 薄い黄色
+    "#bebada",  # 薄い紫
+    "#fb8072",  # 薄い赤
+    "#80b1d3",  # 青
+    "#fdb462",  # オレンジ
+    "#b3de69",  # 明るい緑
+    "#fccde5",  # 薄いピンク
+    
+    "#bc80bd",  # 紫
+    "#ccebc5",  # ミントグリーン
+    "#ffed6f",  # レモンイエロー
+    "#7fc97f",  # 落ち着いた緑
+    "#fdc086",  # 柔らかいオレンジ
+    "#ffff99",  # 明るい黄
+    "#386cb0",  # 紺青
+    "#f0027f",  # ビビッドピンク
+    
+    "#bf5b17",  # 赤茶
+    "#6a3d9a",  # 濃い紫
+    "#cab2d6",  # 淡いラベンダー
+    "#ff7f00",  # 鮮やかなオレンジ
+    "#b2df8a",  # 明るい緑
+    "#a6cee3",  # 明るい水色
+    "#fb9a99",  # ソフトな赤
+    "#1f78b4",  # 落ち着いた青
+    "#33a02c",  # 深緑
+    "#b15928"   # 焦げ茶
+)
+
+
+color_v2 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
+              "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF", "#F0E442", "#9E14D2",
+              "#7D8B33", "#B5F56D", "#3F51B5", "#D32F2F", "#0288D1", "#7B1FA2", 
+              "#388E3C", "#FBC02D", "#0288D1", "#8BC34A", "#FF5722", "#8E24AA", 
+              "#795548", "#9C27B0", "#3F51B5", "#4CAF50", "#FF9800", "#E91E63", 
+              "#CDDC39"
+)
+
+
+# FilteringMethods --------------------------
+
+# Family Level 
+
+PhyseqData_Family <- PhyseqData  |> 
+    tax_glom(taxrank = "Family") %>%                        # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Family))                                   # Sort data frame alphabetically by phylum
+
+unique(PhyseqData_Family$Family) 
+
+# write.csv(PhyseqData_Family,
+#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData_Family.csv", 
+#           row.names = TRUE) 
+
+
+# Genus Level 
+
+PhyseqData_Genus <- PhyseqData  |> 
+    tax_glom(taxrank = "Genus") |>                        
+    transform_sample_counts(function(x) {x/sum(x)} )  |>   
+    psmelt()  |>                                           
+    filter(Abundance > 0.01)  |>                           
+    arrange(desc(Genus))
+
+PhyseqData_Genus$dps <- factor(PhyseqData_Genus$dps, levels = c(0, 3, 7))
+
+
+# Objectとして環境に格納していなくても、x=psmelt(PhyseqData)で、指定可能
+## Tips: ⌘ + ⇧ + C → コメントアウト解除
+
+# write.csv(x = PhyseqData_Genus,
+#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData_Genus.csv", 
+#           row.names = TRUE) 
+
+unique(PhyseqData_Genus$Genus) 
+
+
+
+# Plot_Relative_Abundunce -------------------
+
+# Family Level 
+
+## Gathering dps
+ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) + # Package"scales"が必要
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    ggtitle("Relative abundance")
+
+# ggsave(filename = "Relative_abundance_Family.png", plot = last_plot(),
+#        width = 2000, height = 1800, dpi = 300, units = "px",
+#        path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
+
+## In Sample.Name
+ggplot(PhyseqData_Family, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) +
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    ggtitle("Relative abundance")
+
+# ggsave(filename = "Relative_abundance_Family_SampleName.png", plot = last_plot(),
+#        width = 2000, height = 1800, dpi = 300, units = "px",
+#        path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
+
+
+# Genus Level 
+
+## Gathering dps
+ggplot(PhyseqData_Genus, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) +
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    ggtitle("Relative abundance")
+
+# ggsave(filename = "Relative_abundance_Genus.png", plot = last_plot(),
+#        width = 2000, height = 1800, dpi = 300, units = "px",
+#        path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
+
+## In Sample.Name
+ggplot(PhyseqData_Genus, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) +
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    ggtitle("Relative abundance")
+
+# ggsave(filename = "Relative_abundance_Genus_SampleName.png", plot = last_plot(),
+#        width = 2000, height = 1800, dpi = 300, units = "px",
+#        path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
+
+rm(list = ls())
+```
+
+::: callout-warning
+## Abundance value transformation
+
+[**It is usually necessary to transform microbiome count data to account for differences in library size, variance, scale, etc.**]{.mark-green}
+
+`transform_sample_counts`:
+
+The first argument to this function is the **phyloseq object** you want to transform, and the second argument is an R function that defines the transformation.
+
+The R function is applied **sample-wise**, expecting that the first unnamed argument is a vector of taxa counts in the same order as the phyloseq object.
+
+Additional arguments are passed on to the function specified in the second argument, providing an explicit means to include precomputed values, previously defined parameters/thresholds, or any other object that might be appropriate for computing the transformed values of interest.
+:::
+
+# MicrobiotaProcessMethods:
+
+```{r}
+#| label: MicrobiotaProcessMethods
+#| eval: true
+#| Include: false
+#| echo: true
+
+# MPSE object Constructs
+# mpdata <- PhyseqData |>
+#     as.MPSE()
+
+
+library("MicrobiotaProcess")
+library("phyloseq")
+library("dplyr")
+library("purrr")
+library("ggplot2")
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/mpdata.RData")
+
+mpdata %<>% mp_rrarefy()
+
+mpdata %<>% 
+    mp_cal_rarecurve(
+        .abundance = RareAbundance,
+        chunks = 400
+    )
+
+```
+
+## alpha diversity analysis
+
+[**ランダムサンプリングされたのが、RareAbundance**]{.mark-red}
+
+```{r}
+#| label: alpha diversity analysis
+#| eval: true
+#| Include: false
+#| out-width: 90%
+#| fig-align: center
+
+
+
+# mpdata <- PhyseqData |>
+#     as.MPSE()
+
+# save(mpdata,
+#      file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/mpdata.RData")
+
+
+# 以下は同じ意味
+## x <- x |> log()
+## x %<>% log()
+
+mpdata |> print(width=180)
+
+p1 <- mpdata |> 
+    mp_plot_rarecurve(
+        .rare = RareAbundanceRarecurve,
+        .alpha = Observe,
+    )
+
+# The Rarefaction of samples 
+p1
+
+# dev.off()
+
+
+## calculate alpha index and visualization --------
+
+
+mpdata %<>% 
+    mp_cal_alpha(.abundance=RareAbundance) # α多様性指数の算出
+mpdata
+
+f1 <- mpdata  |>  
+    mp_plot_alpha(
+        .group=dps, 
+        .alpha=c(Observe, Chao1, ACE, Shannon, Simpson, Pielou)
+    ) +
+    scale_fill_manual(values=c("#00A087FF", "#3C5488FF","#cab2d6"), guide="none") +
+    scale_color_manual(values=c("#00A087FF", "#3C5488FF","#cab2d6"), guide="none")
+
+f2 <- mpdata |>
+    mp_plot_alpha(
+        .alpha=c(Observe, Chao1, ACE, Shannon, Simpson, Pielou)
+    )
+
+# The alpha diversity comparison
+f1 / f2
+
+
+
+# 関数の内部表示
+# MicrobiotaProcess::mp_plot_alpha
+# showMethods(mp_plot_alpha)
+# getMethod("mp_plot_alpha", signature = "MPSE")
+# ggsignif::geom_signif()で、検定手法を定めている
+
+
+```
+
+## The visualization of taxonomy abundance
+
+```{r}
+#| label: The visualization of taxonomy abundance
+#| eval: true
+#| Include: false
+#| out-width: 90%
+#| fig-align: center
+
+
+mpdata %<>%
+    mp_cal_abundance( # for each samples
+        .abundance = RareAbundance
+    ) |>
+    mp_cal_abundance( # for each groups 
+        .abundance=RareAbundance,
+        .group=dps
+    )
+mpdata
+
+# ランダムサンプリングされたRareAbundanceを用いていることに注意！
+p1 <- mpdata |>
+    mp_plot_abundance(
+        .abundance=RareAbundance,
+        .group=dps, 
+        taxa.class = Phylum, 
+        topn = 20,
+        relative = TRUE
+    )
+# visualize the abundance (rarefied) of top 20 phyla for each sample
+p2 <- mpdata |>
+    mp_plot_abundance(
+        .abundance=RareAbundance,
+        .group=dps,
+        taxa.class = Phylum,
+        topn = 20,
+        relative = FALSE
+    )
+
+# The relative abundunce and abundunce of phyla of all samples
+p1
+p2
+
+# The relative abundance and abundance of phyla of all samples --------------------
+
+
+h1 <- mpdata |>
+    mp_plot_abundance(
+        .abundance = RareAbundance,
+        .group = dps,
+        taxa.class = Phylum,
+        relative = TRUE,
+        topn = 20,
+        geom = 'heatmap',
+        features.dist = 'euclidean',
+        features.hclust = 'average',
+        sample.dist = 'bray',
+        sample.hclust = 'average'
+    ) 
+h2 <- mpdata |>
+    mp_plot_abundance(
+        .abundance = RareAbundance,
+        .group = dps,
+        taxa.class = Phylum,
+        relative = FALSE,
+        topn = 20,
+        geom = 'heatmap',
+        features.dist = 'euclidean',
+        features.hclust = 'average',
+        sample.dist = 'bray',
+        sample.hclust = 'average'
+    )
+# the character (scale or theme) of figure can be adjusted by set_scale_theme
+# refer to the mp_plot_dist
+
+# The relative abundunce and abundunce of phyla of all samples
+aplot::plot_list(gglist=list(h1, h2), tag_levels="A")
+
+
+
+# visualize the relative abundance of top 20 phyla for each .group (time) --------------------
+
+p3 <- mpdata |>
+    mp_plot_abundance(
+        .abundance=RareAbundance, 
+        .group=dps,
+        taxa.class = Phylum,
+        topn = 20,
+        plot.group = TRUE
+    )
+
+# visualize the abundance of top 20 phyla for each .group (time)
+p4 <- mpdata |>
+    mp_plot_abundance(
+        .abundance=RareAbundance,
+        .group= dps,
+        taxa.class = Phylum,
+        topn = 20,
+        relative = FALSE,
+        plot.group = TRUE
+    )
+
+p3
+p4
+
+
+```
+
+## Beta diversity analysis
+
+```{r}
+#| label: Beta diversity analysis
+#| eval: true
+#| Include: false
+#| out-width: 90%
+#| fig-align: center
+
+
+# standardization
+# mp_decostand wraps the decostand of vegan, which provides 
+# many standardization methods for community ecology.
+# default is hellinger, then the abundance processed will
+# be stored to the assays slot. 
+mpdata %<>% 
+    mp_decostand(.abundance=Abundance)
+mpdata
+
+# calculate the distance between the samples.
+# the distance will be generated a nested tibble and added to the
+# colData slot.
+mpdata %<>% mp_cal_dist(.abundance=hellinger, distmethod="bray")
+mpdata
+
+detach("package:phyloseq", unload=TRUE)
+
+
+p5 <- mpdata |> mp_plot_dist(.distmethod = bray)
+p5
+
+
+
+# when .group is provided, the dot heatmap plot with group information will be return.
+p6 <- mpdata |> MicrobiotaProcess::mp_plot_dist(.distmethod = bray, .group = dps)
+# The scale or theme of dot heatmap plot can be adjusted using set_scale_theme function.
+p6 |> set_scale_theme(
+    x = scale_fill_manual(
+        values=c("orange","deepskyblue","#1b9e77"), 
+        guide = guide_legend(
+            keywidth = 1, 
+            keyheight = 0.5, 
+            title.theme = element_text(size=8),
+            label.theme = element_text(size=6))), 
+    aes_var = dps) |> # specific the name of variable 
+    set_scale_theme(
+        x = scale_color_gradient(
+            guide = guide_legend(keywidth = 0.5, keyheight = 0.5)),
+        aes_var = bray) |> 
+    set_scale_theme(
+        x = scale_size_continuous(
+            range = c(0.1, 3),
+            guide = guide_legend(keywidth = 0.5, keyheight = 0.5)),
+        aes_var = bray)
+
+
+# when .group is provided and group.test is TRUE, the comparison of different groups will be returned
+p7 <- mpdata |> mp_plot_dist(.distmethod = bray, .group = dps, group.test=TRUE, textsize=2)
+p7
+
+
+```
+
+## The PCoA analysis
+
+```{r}
+#| label: The PCoA analysis 
+#| eval: true
+#| Include: false
+#| out-width: 90%
+#| fig-align: center
+
+
+library(ggplot2)
+
+mpdata %<>% 
+    mp_cal_pcoa(.abundance = hellinger, distmethod="bray")
+
+# The dimensions of ordination analysis will be added the colData slot (default).
+mpdata
+
+# We also can perform adonis or anosim to check whether it is significant to the dissimilarities of groups.
+mpdata %<>%
+    mp_adonis(.abundance = hellinger, .formula = ~dps, distmethod = "bray", permutations = 9999, action = "add")
+mpdata %>% mp_extract_internal_attr(name = adonis)
+
+
+p8 <- mpdata %>%
+    mp_plot_ord(
+        .ord = pcoa, 
+        .group = dps, 
+        .color = dps, 
+        .size = 1.8,
+        .alpha = 1,
+        ellipse = TRUE,
+        show.legend = FALSE # don't display the legend of stat_ellipse
+    ) +
+    scale_fill_manual(values=c("#00A087FF", "#3C5488FF", "orange")) +
+    scale_color_manual(values=c("#00A087FF", "#3C5488FF", "orange")) 
+
+# The size of point also can be mapped to other variables such as Observe, or Shannon 
+# Then the alpha diversity and beta diversity will be displayed simultaneously.
+p9 <- mpdata %>% 
+    mp_plot_ord(
+        .ord = pcoa, 
+        .group = dps, 
+        .color = dps, 
+        .size = Shannon,
+        ellipse = TRUE,
+        show.legend = FALSE # don't display the legend of stat_ellipse 
+    ) +
+    scale_fill_manual(
+        values = c("#00A087FF", "#3C5488FF","orange"), 
+        guide = guide_legend(keywidth=0.6, keyheight=0.6, label.theme=element_text(size=6.5))
+    ) +
+    scale_color_manual(
+        values=c("#00A087FF", "#3C5488FF", "orange"),
+        guide = guide_legend(keywidth=0.6, keyheight=0.6, label.theme=element_text(size=6.5))
+    ) +
+    scale_size_continuous(
+        range=c(0.5, 3),
+        guide = guide_legend(keywidth=0.6, keyheight=0.6, label.theme=element_text(size=6.5))
+    )
+
+
+p8 + p9
+
+```
+
+## Hierarchical cluster analysis
+
+```{r}
+#| label: Hierarchical cluster analysis
+#| eval: false
+#| Include: false
+
+
+mpdata %<>%
+    mp_cal_clust(
+        .abundance = hellinger, 
+        distmethod = "bray",
+        hclustmethod = "average", # (UPGAE)
+        action = "add" # action is used to control which result will be returned
+    )
+
+mpdata
+
+
+
+# if action = 'add', the result of hierarchical cluster will be added to the MPSE object
+# mp_extract_internal_attr can extract it. It is a treedata object, so it can be visualized
+# by ggtree.
+sample.clust <- mpdata |>
+    mp_extract_internal_attr(name='SampleClust')
+sample.clust
+
+
+library(ggtree)
+library(ggtreeExtra)
+library(ggplot2)
+
+
+p10 <- ggtree(sample.clust) + 
+    geom_tippoint(aes(color=dps)) +
+    geom_tiplab(as_ylab = TRUE) +
+    ggplot2::scale_x_continuous(expand=c(0, 0.01))
+
+
+p10
+
+
+phyla.tb <- mpdata |> 
+    mp_extract_abundance(taxa.class = Phylum, topn = 30)
+
+# The abundance of each samples is nested, it can be flatted using the unnest of tidyr.
+phyla.tb %<>% tidyr::unnest(cols=RareAbundanceBySample) |> dplyr::rename(Phyla="label")
+phyla.tb
+
+
+p11 <- p10 + 
+    geom_fruit(
+        data = phyla.tb,
+        geom = geom_col,
+        mapping = aes(x = RelRareAbundanceBySample, 
+                      y = Sample.Name,
+                      fill = label
+        ),
+        orientation = "y",
+        #offset = 0.4,
+        pwidth = 3, 
+        axis.params = list(axis = "x", 
+                           title = "The relative abundance of phyla (%)",
+                           title.size = 4,
+                           text.size = 2, 
+                           vjust = 1),
+        grid.params = list()
+    )
+
+
+p11
+
+
+```
+
+## Biomarker discovery
+
+### Transform Abundance value:
+
++------------------+------------------------------------------------------------------------------+-----------------------------------+
+| 引数             | 意味                                                                         | 例                                |
++==================+==============================================================================+===================================+
+| `.data`          | `MPSE`, `tbl_mpse`, `grouped_df_mpse`                                        | `mpdata`                          |
++------------------+------------------------------------------------------------------------------+-----------------------------------+
+| `.abundance`     | 存在量(colnames)\                                                            | `Abundance`                       |
++------------------+------------------------------------------------------------------------------+-----------------------------------+
+| `min.abun`       | 各サンプルにおける最小存在量                                                 | `1` → 各サンプルで1以上           |
++------------------+------------------------------------------------------------------------------+-----------------------------------+
+| `min.prop`       | Taxaが存在すべき 最小サンプル割合（0–1）または数値（整数）→ Precalenceのこと | `0.1` → 全体の10%のサンプルに存在 |
++------------------+------------------------------------------------------------------------------+-----------------------------------+
+| `include.lowest` | `TRUE` のとき `>= min.abun`、`FALSE` なら `> min.abun`（デフォルト）         | `TRUE` なら閾値含む               |
++------------------+------------------------------------------------------------------------------+-----------------------------------+
+
+```{r}
+#| label: Transform Abundance value
+#| eval: false
+#| Include: false
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/mpdata.RData")
+
+mpdata %<>%
+    mp_cal_abundance(.abundance = Abundance, action = "add",
+                     relative = TRUE, force = TRUE)
+mpdata %<>%
+    mp_filter_taxa(.abundance = RelAbundanceBySample,
+                   min.prop = 0.12,
+                   min.abun = 0.1 # 相対存在量 0.1% > Filtering  
+    )
+
+### Differentially abundant taxa --------------
+
+mpdata %<>%
+    mp_diff_analysis(
+       .abundance = Abundance, # 存在量を指定 (相対存在量 or ランダムサンプリング存在量 or 絶対存在量 or 正規化存在量)
+       .group = dps, # 比較対象
+       first.test.alpha = 0.3, # 有意性の一次判定に用いるp値のしきい値
+       second.test.alpha = 0.05, action = "add", relative = TRUE # 多重検定補正後のしきい値
+    )
+
+```
+
+`mp_diff_analysis()`：比較したい処理区には、最低でも 5 Sampleは必要
+
+# DESeq2
+
+[Analyzing RNA-seq data with DESeq2](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)\
+[RNA-seq workflow: gene-level exploratory analysis and differential expression](https://master.bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html)\
+[DESeq2 with phyloseq](https://joey711.github.io/phyloseq-extensions/DESeq2.html)
+
+## Preparing quantification input to DESeq2
+
+The values in the matrix should be counts or estimated counts of sequencing reads/fragments\
+This is important for `DESeq2`’s statistical model to hold, as only counts allow assessing the measurement precision correctly\
+It is important to never provide **counts that were pre-normalized for sequencing depth/library size, as the statistical model is most powerful when applied to un-normalized counts**, and is designed to account for library size differences internally\
+The object class used by the DESeq2 package to store the read counts and the intermediate estimated quantities during statistical analysis is the **DESeqDataSet**, which will usually be represented in the code here as an object `dds`\
+[We will now show 4 ways of constructing a **DESeqDataSet**, depending on what pipeline was used upstream of DESeq2 to generated counts or estimated counts:]{.mark-blue}
+
+-   From transcript abundance files and tximport
+-   **From a count matrix**
+-   From htseq-count files
+-   From a SummarizedExperiment object
+
+Alternatively, the function `DESeqDataSetFromMatrix` can be used if you already have a matrix of read counts prepared from another source
+
+## PhyseqObjectsDESeq2
+
+```{r}
+#| label: PhyseqObjectsDESeq2
+#| eval: false
+#| Include: false
+
+rm(list = ls())
+library("phyloseq")
+library("DESeq2")
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData.RData")
+
+PhyseqData <- transform_sample_counts(PhyseqData, function(x) 100*(x / sum(x)))
+# PhyseqData <- filter_taxa(PhyseqData, function(x) mean(x) > 0.1, TRUE)
+
+# write.csv(t(PhyseqData@otu_table@.Data),
+#            file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData@otu_table@.Data.csv")
+
+
+dps_dds = phyloseq_to_deseq2(PhyseqData, ~ dps)
+dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
+res = results(dps_dds, cooksCutoff = FALSE)
+alpha = 0.01
+# write.csv(res, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/res.csv")
+sigtab = res[which(res$padj < alpha), ] 
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
+head(sigtab)
+
+
+
+```
+
+### Taxa Level in Family Level:
+
+[**注意**]{.mark-red}
+
+tax_glom(taxrank = "Family") → ASVsの分類群を統合しているため、科(Family)以下の分類群である属(Genus)が異なるASVsも、数字が小さいASVsに格納される
+
+→ ASV 1 のFamilyが顕著に存在量が変動したとしても、その中のGenusが同様の傾向を示しているとは限らない!!!!
+
+```{r}
+#| label: Taxa Level in Family Level
+#| eval: true
+#| Include: false
+#| message: false
+
+### Taxa Level in Family Level --------------------------------
+rm(list = ls())
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData.RData")
+library("phyloseq")
+library("DESeq2")
+
+
+#### Filtering ---------------------
+PhyseqData_Family <- PhyseqData  |> 
+    tax_glom(taxrank = "Family") |>                  # agglomerate at phylum level
+    filter_taxa(function(x) mean(x) > 100, TRUE) |>  # Read数が約100000であり、0.1%のReads数 
+    phyloseq::subset_taxa(Kingdom == "Bacteria")               # Archaeaを除去
+
+
+# PhyseqData_Family.csv <- read.csv("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/PhyseqData_Family.csv",
+#             header = TRUE, sep = ",", fileEncoding = "UTF-8")
+
+# write.csv(cbind(t(PhyseqData_Family@otu_table@.Data), PhyseqData_Family@tax_table@.Data),
+#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/PhyseqData_Family.csv")
+
+
+
+
+#### DESeq2 conversion & results table ----------------
+
+dps_dds = phyloseq_to_deseq2(PhyseqData_Family, ~ dps)       # dps列(散布後日数)で比較
+dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
+
+
+
+res = results(dps_dds, cooksCutoff = FALSE)
+# write.csv(res, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/res.csv")
+ 
+
+
+alpha = 0.01
+sigtab = res[which(res$padj < alpha), ] 
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
+head(sigtab)
+dim(sigtab)
+
+res
+
+#### Results_ggplot ----------------------------
+library("ggplot2")
+theme_set(theme_bw())
+
+
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
+# Genus order
+x = tapply(sigtab$log2FoldChange, sigtab$Genus, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
+
+# ggplot(sigtab, aes(x=Family, y=log2FoldChange, color=Phylum)) + geom_point(size=abs(sigtab$log2FoldChange)) + 
+#   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
+
+
+
+sigtab$Sign <- ifelse(sigtab$log2FoldChange < 0, "Negative", "Positive")
+sigtab$ASV <- rownames(sigtab)
+custom_colors_21 <- c(
+    "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00","#FFFF33", "#A65628", "#F781BF", "#999999", "#66C2A5",
+    "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F","#E5C494", "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3","#E7298A"
+)
+
+
+ggplot(sigtab, aes(x = Family, y = abs(sigtab$log2FoldChange), color = Phylum, shape = Sign)) +
+    geom_point(size = 5) +
+    geom_text(aes(label = ASV), vjust = -1, size = 3) + 
+    scale_color_manual(values = custom_colors_21) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Positive" = 16, "Negative" = 17)) +  # 丸と三角など
+    ylab("log2FoldChange") +
+    xlab("Family") +
+    theme(legend.position = "right")
+
+
+
+```
+
+### Taxa Level in Order Level:
+
+```{r}
+#| label: Taxa Level in Order Level
+#| eval: false
+#| Include: false
+
+
+
+```
+
+### Taxa Level in Class Level:
+
+```{r}
+#| label: Taxa Level in Class Level
+#| eval: false
+#| Include: false
+
+
+
+```
+
+### Taxa Level in Phylum Level:
+
+```{r}
+#| label: Taxa Level in Phylum Level
+#| eval: false
+#| Include: false
+
+
+
+```
+
+# SessionInfo
+
+```{r}
+#| label: SessionInfo
+#| eval: true
+#| Include: false
+
+
+sessionInfo()
+
+
+```

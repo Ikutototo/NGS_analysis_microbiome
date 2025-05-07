@@ -1,0 +1,577 @@
+---
+title: "DADA2"
+author: "saito ikuto"
+date: "2025/03/31"
+date-format: iso
+format: 
+  html:
+    grid: 
+      body-width: 1600px
+    code-fold: true
+    toc: true
+    toc-expand: false
+    toc-location: right
+    toc-depth: 3
+    number-sections: true
+    embed-resources: false
+    highlight-style: atom-one
+    theme: yeti
+  pdf: default
+---
+
+# Chunk Options & SetDirectory
+
+```{r}
+#| label: ChunkOption
+#| include: true
+
+knitr::opts_chunk$set(echo = TRUE)
+# MacBookAir or ProでPATH(My drive or マイドライブ)が異なるため注意が必要
+knitr::opts_knit$set(
+    root.dir = "/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RawData_Bacteria")
+
+```
+
+# PackageList & SessionInfo
+
+```{r}
+#| message: false 
+#| label: PackageList & SessionInfo
+
+
+lib <- c("dada2", "ggplot2", "dplyr", "Biostrings", "phyloseq", "ShortRead")
+for (i in lib) {
+  print(i)
+  print(packageVersion(i))
+  library(i, quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE, character.only = TRUE)
+}
+
+sessionInfo()
+
+# DADA2_??.Rで実装し、保存したRDataをload
+load("/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotQC/PlotQC_Filt_Data.RData")
+
+
+load("/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotQC/PlotQC_BEFORE_Data.RData")
+
+
+load("/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotQC/dada2_ErrorRateData.RData")
+
+
+load("/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotQC/MergeData.RData")
+
+
+load("/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotQC/TaxaData.RData")
+
+
+```
+
+::: callout-warning
+## Novogene 16s amplicom sequence
+
+[**Novogene 委託 16s amplicom seqence → データ解析× の場合、配列のQC + Filtering + Mergeまでは実装してくれるが、属・種のAnnotationから自力で実装する必要がある**]{.underline}
+
+The DADA2 method (Callahan et al., 2016) is mainly used for noise reduction.
+
+It no longer uses similarity clustering, but [**only performs dereplication or equivalent to 100% similarity clustering**]{.underline}.
+
+Each [**de-duplicated sequence generated after noise reduction using DADA2 is called ASVs**]{.underline} (**Amplicon Sequence Variants**), or feature sequence (corresponding to the OTU representative sequence), and the abundance table of these sequences in the sample is called the feature table (corresponds to the OTU table).
+
+The DADA2 method is more sensitive and specific than the traditional OTU method and can detect the true biological mutations missed by the OTU method while outputting fewer false sequences (Callahan et al., 2019).
+
+Compared with OTUs, ASVs improve the accuracy, comprehensiveness, and repeatability of marker gene data analysis (Amir et al., 2017).
+:::
+
+::: callout-note
+# [**How to Determine Trimming Parameter**]{.underline}
+
+1.  以下のFastQC → SequenceLengthDistributionを実装\
+    FastQC Reports CUI に関しては、Cutadapt.qmdを参照
+
+2.  SequenceLengthDistribution(SLD) Folder内、各Sampleの(SLD)を確認し、大まかな配列長と分布を数値で確認 + Multiqc reportも並行で
+
+3.  ??\_fastqc.htmlでのSequence Length Distributionだと、グラフ化されており、詳しくはわからない
+:::
+
+# FastQC → SequenceLengthDistribution
+
+```{r}
+#| label: Sequence Length Distribution Scripts
+#| eval: false
+
+# 全Commandで、Directoryを意識すること
+cd '~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/FastQC_Reports_RawData_Bacteria'
+
+# zip fileの名前を取得(拡張子なし)
+# 解凍(_fastqc folderに展開)
+# `fastqc_data.txt` をrenameしてCurrentDirectoryに移動
+# 解凍したFolderを削除(不要ならCommentOutすること)
+for file in *_fastqc.zip; do
+    base_name="${file%_fastqc.zip}"
+    unzip -q "$file" -d "$base_name"
+    mv "$base_name"/*_fastqc/fastqc_data.txt \
+       "$base_name.txt"
+    rm -r "$base_name"
+done
+
+# 先に "SequenceLengthDistribution" Folderを作成すること
+mkdir SequenceLengthDistribution
+for file in *.txt; do
+    awk '
+        /Sequence Length Distribution/ { 
+            flag = 1; 
+            count = 0 
+        } 
+        flag { 
+            print; 
+            count++ 
+        } 
+        count == 50 { 
+            exit 
+        }' "$file" > "${file%.txt}_filtered.txt"
+
+    mv "${file%.txt}_filtered.txt" SequenceLengthDistribution/
+done
+
+# Folder c(fastqc_zip, fastqc_html, fastqc_txt)を作成 + Folder内のFile整理 
+mkdir -p fastqc_zip fastqc_html fastqc_txt
+mv *.zip fastqc_zip
+mv *.html fastqc_html
+mv *.txt fastqc_txt
+
+# multiqc → fastqcの一覧表示
+# multiqcはあらかじめインストールしておくこと
+# fastqc.zip Folderにcdすること
+cd '/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/FastQC_Reports_RawData_Bacteria/fastqc_zip'
+
+mkdir Forward
+mkdir Reverse
+
+cd ./Forward
+multiqc . 
+
+cd ./Reverse
+multiqc . 
+
+# multiqc_report.htmlにて、Sequence Length Distributionを確認
+# グラフを選択することで、縮小を変えることが可能
+```
+
+# PlotQualityProfile (dada2 Package)
+
+```{r}
+#| label: PlotQC_BEFORE
+#| eval: false
+#| Include: false
+
+
+fnFs <- sort(list.files(path, pattern="_1.fastq", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="_2.fastq", full.names = TRUE))
+
+# fnFs[]は、sample数に応じて、変える
+PlotQC_BF_RData_For <- plotQualityProfile(fnFs[1:9])
+PlotQC_BF_RData_Rev <- plotQualityProfile(fnRs[1:9])
+
+# PlotQCをRDataとしてオブジェクトを保存 → 毎RenderでCPUで負担をかけないようにあらかじめRDataとして保存しておく
+save(PlotQC_BF_RData_For, PlotQC_BF_RData_Rev, file = "./RData/PlotQC/PlotQC_Data_BF.RData")
+
+```
+
+```{r}
+#| label: Check Filtering Parameter
+#| eval: false
+#| Include: false
+
+
+readfnFs_lengths_summary <- lapply(fnFs, function(file) {
+    reads <- ShortRead::readFastq(file)
+    read_lengths <- width(ShortRead::sread(reads))
+    summary(read_lengths)
+})
+names(read_lengths_summary) <- basename(fnFs)
+print(head(read_lengths_summary, 15))
+
+readfnRs_lengths_summary <- lapply(fnRs, function(file) {
+    reads <- ShortRead::readFastq(file)
+    read_lengths <- width(ShortRead::sread(reads))
+    summary(read_lengths)
+})
+names(read_lengths_summary) <- basename(fnRs)
+print(head(read_lengths_summary, 15))
+
+# 配列長のSummaryを出力
+
+```
+
+# Filter & Triming
+
+```{r}
+#| label: Filter & Trim
+#| eval: false
+#| Include: false
+
+
+FiltData <- filterAndTrim(fwd = fnFs, filt = filtFs, rev = fnRs, 
+                          filt.rev = filtRs,truncLen=c(219,219),
+                          maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+                          compress=TRUE, multithread=TRUE,verbose = TRUE)
+
+PlotQC_AF_RData_For <- plotQualityProfile(filtFs[1:9])
+
+PlotQC_AF_RData_Rev <- plotQualityProfile(filtRs[1:9])
+
+
+readfiltRs_lengths_summary <- lapply(filtRs, function(file) {
+    reads <- ShortRead::readFastq(file)
+    read_lengths <- width(ShortRead::sread(reads))
+    summary(read_lengths)
+})
+names(readfiltRs_lengths_summary) <- basename(filtRs)
+print(head(readfiltRs_lengths_summary, 10))
+
+
+readfiltFs_lengths_summary <- lapply(filtFs, function(file) {
+    reads <- ShortRead::readFastq(file)
+    read_lengths <- width(ShortRead::sread(reads))
+    summary(read_lengths)
+})
+names(readfiltFs_lengths_summary) <- basename(filtFs)
+print(head(readfiltFs_lengths_summary, 10))
+
+cat(crayon::bgGreen("Processing of plotqualityprofile is complete."))
+
+
+# DADA2_RawData_Bac.Rで実装済 (load(~.RData))
+save(PlotQC_AF_RData_For, PlotQC_AF_RData_Rev,
+     readfiltFs_lengths_summary, readfiltRs_lengths_summary,
+     file = "./RData/PlotQC/PlotQC_Filt_Data.RData")
+
+```
+
+:::: callout-warning
+## How to Determine Parameter
+
+Remember though, when choosing `truncLen` for paired-end reads you must maintain overlap after truncation in order to merge them later
+
+If too few reads are passing the filter, consider relaxing `maxEE`, perhaps especially on the reverse reads (eg. `maxEE`=c(2,5)), and reducing the `truncLen` to remove low quality tails.
+
+Lower Quartile \< 20
+
+truncLenによってReadsLengthが小さくなり、maxEEによるFilteringされるReadsが減少 → read.outが増加
+
+基本的にtruncQはDefaultsでいいかも `truncQ` → 2\~15で調整後
+
+head(out)で要確認 → 20だとほとんどがfilteringされ、reads.outが極小化
+
+[**`truncQ` (Phred Quality Score) \< 5 → Phred Quality Scoreが5以下になったReadsを除去**]{.underline}
+
+[reads.in = import reads, reads.out = export reads(filteringで残ったreads)]{.underline}
+
+[Increasing the sensitivity of DADA2 with prior information](https://benjjneb.github.io/dada2/pseudo.html#Pseudo-pooling)
+
+::: callout-note
+`truncLen = c()`
+
+(Optional). Default 0 (no truncation). [**Truncate reads after truncLen bases**]{.underline}. [**Reads shorter than this are discarded**]{.underline}
+
+ex. 240 bp (Reads) → `truncLen = 200` → 40 bp discarded
+
+`verbose = TRUE`
+
+(Optional). Default FALSE. Whether to output status messages
+:::
+::::
+
+# PlotQC (BEFORE → AFTER)
+
+```{r}
+#| label: PlotQC_AFTER
+#| eval: TRUE
+#| Include: false
+#| code-fold: false
+#| fig-width: 12
+#| fig-height: 8
+
+
+readfnFs_lengths_summary
+readfiltFs_lengths_summary
+PlotQC_BF_RData_For
+PlotQC_AF_RData_For
+
+
+readfnRs_lengths_summary
+readfiltRs_lengths_summary
+PlotQC_BF_RData_Rev
+PlotQC_AF_RData_Rev
+
+```
+
+::: callout-important
+## how to interpret PlotQC
+
+In gray-scale is a heat map of the frequency of each quality score at each base position.
+
+The **mean quality score at each position is shown by the green line**,\
+and the **quartiles of the quality score distribution by the orange lines.**
+
+The **red line shows the scaled proportion of reads that extend to at least that position** (this is more useful for other sequencing technologies, as Illumina reads are typically all the same length, hence the flat red line)
+:::
+
+# Learn the Error Rates
+
+```{r}
+#| label: Learn the Error Rates
+#| eval: true
+#| Include: false
+#| code-fold: false
+#| fig-width: 12
+#| fig-height: 8
+
+# errF <- learnErrors(filtFs, multithread=TRUE)
+# errR <- learnErrors(filtRs, multithread=TRUE)
+
+plotErrors(errF, nominalQ=TRUE)
+plotErrors(errR, nominalQ=TRUE)
+
+
+```
+
+::: callout-tip
+## how to interpret ErrorRate
+
+The error rates for each possible transition (A→C, A→G, …) are shown.
+
+Points are the observed error rates for each consensus quality score.
+
+The black line shows the estimated error rates after convergence of the machine-learning algorithm.
+
+The red line shows the error rates expected under the nominal definition of the Q-score.
+:::
+
+# Sample Inference
+
+```{r}
+#| label: Sample Inference
+#| eval: true
+#| Include: false
+
+# dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
+# dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
+
+dadaFs
+dadaRs
+
+
+# save(errF, errR, dadaFs, dadaFs, file = "./RData/PlotQC/dada2_ErrorRateData.RData")
+
+```
+
+::: callout-tip
+## Extensions:
+
+By default, the `dada` function processes each sample independently. However, pooling information across samples can increase sensitivity to sequence variants that may be present at very low frequencies in multiple samples.
+
+The dada2 package offers two types of pooling.
+
+`dada(..., pool=TRUE)` performs standard pooled processing, in which all samples are pooled together for sample inference.
+
+`dada(..., pool="pseudo")` performs pseudo-pooling, in which samples are processed independently after sharing information between samples, approximating pooled sample inference in linear time.
+:::
+
+# Merge paired reads &
+
+```{r}
+#| label: Merge paired reads
+#| eval: false
+#| Include: false
+
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+head(mergers[[1]])
+
+```
+
+::: callout-note
+## Merge paired reads
+
+By default, merged sequences are only output if the forward and reverse reads overlap by at [**least 12 bases**]{.underline}, and are identical to each other in the overlap region (but these conditions can be changed via function arguments).
+
+Most of your **reads** should successfully merge. If that is not the case upstream parameters may need to be revisited: Did you trim away the overlap between your reads?
+
+[**254 bpが最も多いはず**]{.underline}
+
+![V4領域増幅のながれとペアエンドリード](png/16S%20V4領域.png)
+:::
+
+# Construct sequence table
+
+```{r}
+#| label: Construct sequence table
+#| eval: true
+#| Include: false
+
+seqtab <- makeSequenceTable(mergers)
+
+# 1列目 = sample数, 2列目 = ASVs数
+dim(seqtab)
+
+# 配列の分布とReads数
+table(nchar(getSequences(seqtab)))
+
+# 変な領域でマージされ、おかしな配列長のReadsを排除
+seqtab <- seqtab[,nchar(colnames(seqtab)) %in% 250:257]
+
+dim(seqtab2)
+table(nchar(getSequences(seqtab2)))
+
+```
+
+::: callout-note
+## Considerations for your own data:
+
+The sequence table is a matrix with [**rows corresponding to (and named by) the samples**]{.underline}, and [**columns corresponding to (and named by) the sequence variants(ASVs**]{.underline}**)**
+
+Sequences that are much longer or shorter than expected may be the result of non-specific priming.
+
+You can remove non-target-length sequences from your sequence table
+
+(eg. `seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 250:256]`)
+
+This is analogous to “cutting a band” in-silico to get amplicons of the targeted length. 
+:::
+
+# Remove chimeras
+
+```{r}
+#| label: Remove chimeras
+#| eval: true
+#| Include: false
+
+
+# seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+
+# 1列目 = sample数, 2列目 = ASVs数 (キメラ除去後)
+dim(seqtab.nochim)
+
+# キメラがASVsの内、どの程度占めているか
+dim(seqtab.nochim)[2]/dim(seqtab)[2]
+
+# ASVsの存在量を考慮した上での、キメラの割合
+sum(seqtab.nochim)/sum(seqtab)
+
+```
+
+::: callout-note
+## Considerations for your own data:
+
+Most of your **reads** should remain after chimera removal (it is not uncommon for a majority of **sequence variants** to be removed though).
+
+If most of your reads were removed as chimeric, upstream processing may need to be revisited. In almost all cases this is caused by primer sequences with ambiguous nucleotides that were not removed prior to beginning the DADA2 pipeline.
+:::
+
+# Track reads through the pipeline
+
+```{r}
+#| label: Track reads through the pipeline
+#| eval: true
+#| Include: false
+
+# getN <- function(x) sum(getUniques(x))
+# track <- cbind(Result_FilterTrim, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+
+# colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+# rownames(track) <- sample.names
+
+track
+
+# save(mergers, seqtab, seqtab2, seqtab.nochim, getN, track, file = "./RData/PlotQC/MergeData.RData")
+
+```
+
+# Assign taxonomy
+
+```{r}
+#| label: Assign taxonomy
+#| eval: false
+#| Include: false
+
+# SILVA database (v.138) 
+# silvafileのPATHに注意(マイドライブ or My drive)
+system.time(taxa <- assignTaxonomy(seqtab.nochim,
+                                   refFasta = "/Users/saitoikuto/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/マイドライブ/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/silva_nr99_v138.2_toGenus_trainset.fa.gz",
+                                   multithread=TRUE))
+
+system.time(taxa_species <- assignTaxonomy(seqtab.nochim,
+                                   refFasta = "/Users/saitoikuto/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/マイドライブ/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/silva_nr99_v138.2_toSpecies_trainset.fa.gz",
+                                   multithread=TRUE))
+
+taxa.print <- taxa # Removing sequence rownames for display only
+rownames(taxa.print) <- NULL
+head(taxa.print, 20)
+
+taxa.print_species <- taxa_species # Removing sequence rownames for display only
+rownames(taxa.print_species) <- NULL
+head(taxa.print_species, 20)
+
+
+
+```
+
+::: callout-tip
+## [naive Bayesian classifier method](http://www.ncbi.nlm.nih.gov/pubmed/17586664)
+
+The `assignTaxonomy` function takes as input a set of sequences to be classified and a training set of reference sequences with known taxonomy, and outputs taxonomic assignments with at least `minBoot` bootstrap confidence.
+
+[**For fungal taxonomy**]{.underline}, the General Fasta release files from the [UNITE ITS database](https://unite.ut.ee/repository.php) can be used as is.
+
+**Extensions:**
+
+The dada2 package also implements a method to make [species level assignments based on **exact matching**](https://benjjneb.github.io/dada2/assign.html#species-assignment) between ASVs and sequenced reference strains. Recent analysis suggests that [exact matching (or 100% identity) is the only appropriate way to assign species to 16S gene fragments](https://academic.oup.com/bioinformatics/advance-article-abstract/doi/10.1093/bioinformatics/bty113/4913809). Currently, [species-assignment training fastas are available for the Silva and RDP 16S databases](https://benjjneb.github.io/dada2/training.html). To follow the optional species addition step, download the [`silva_species_assignment_v132.fa.gz`](https://zenodo.org/records/14169026) file, and place it in the directory with the fastq files.
+
+[**Annotation database of the project is**`silva_nr99_v138.2_toGenus_trainset.fa.gz`]{.underline}
+
+According to the results of ASVs annotations and the feature tables of each sample, the species abundance tables at the level of kingdom, phyla, class, order, family, genus, and species are obtained.
+
+[**These abundance tables with annotation information are the core content of amplicon analysis.**]{.underline}
+
+According to different experimental purposes, one or several species of key concern can be selected from the species abundance table of each classification level ([**usually focusing on the phylum and genus level**]{.underline}), combined with the species composition and differential analysis of different samples (groups), and cluster analysis to conduct in-depth research.
+
+[**Representative sequence**]{.underline}: `result/02.FeatureAnalysis/feature.fasta`
+:::
+
+# Filter & Trim → FastQC Reports
+
+```{r}
+#| label: FastQCReports
+#| eval: false
+#| Include: false
+
+cd '~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RawData_Bacteria/filtered'
+
+mkdir -p Forward Reverse
+mv *F_* Forward
+mv *R_* Reverse
+
+cd '/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RawData_Bacteria/filtered/Forward'
+
+mkdir FastQC_Reports_Forward
+mkdir FastQC_Reports_Reverse
+
+fastqc --outdir ../FastQC_Reports_Forward *.fastq.gz
+fastqc --outdir ../FastQC_Reports_Reverse *.fastq.gz
+
+mkdir -p fastqc_zip fastqc_html 
+mv *.zip fastqc_zip
+mv *.html fastqc_html
+
+cd 
+
+mkdir Forward
+mkdir Reverse
+
+cd ./Forward
+multiqc . 
+
+cd ./Reverse
+multiqc . 
+
+```

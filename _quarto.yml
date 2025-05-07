@@ -1,0 +1,40 @@
+author: "saito ikuto"
+date: now
+date-format: "YYYY/MM/DD"
+format: 
+  html:
+    grid:
+      body-width: 1500px
+    code-fold: false
+    code-tools: true
+    code-copy: true   
+    toc: true
+    toc-expand: true
+    toc-location: right
+    toc-depth: 3
+    number-sections: true
+    embed-resources: false
+    highlight-style: none
+    theme: darkly
+    css: stele/style.css
+    fig-align: center      
+    fig-width: 12
+    fig-height: 8
+    dpi: 150
+    fig-format: png  
+    fig-cap-location: bottom
+    smooth-scroll: true 
+    warning: false 
+    font-family: "Arial"
+    title-block-banner: true
+
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
+    documentclass: scrartcl
+    papersize: letter
+    
+project:
+  type: default
+  output-dir: docs

@@ -2,9 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-*.html
 .DS_Store
-*.Rproj
-/Users/ikutosaito/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/Reference_R_Scripts/**
-/Users/ikutosaito/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/taxa_reference/**
-/Users/ikutosaito/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/**
+RData/**
+docs/**
+Phyloseq_RawData_Bac_images/**
+/.quarto/

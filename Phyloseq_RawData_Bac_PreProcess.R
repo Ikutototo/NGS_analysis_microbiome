@@ -1,66 +1,115 @@
 # Setting -----------------------------------
 rm(list = ls())
-# MacBookAir or Proでマイドライブ or My Driveで変わるため注意
-setwd("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331")
 
-# 不必要なpackageはロードしない方が良い
-# lib <- c("ggplot2", "phyloseq", "dplyr", "scales",
-#          "RColorBrewer", "ggsci", "cowplot", "vegan", "purrr")
-# for (i in lib) {
-#     print(i)
-#     library(i, quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE, character.only = TRUE)
-# }
+setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/PhyloseqData.RData")
+library(phyloseq)
+library(ggplot2)
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData_Bac.RData")
 
 # Prevalence filtering ----------------------
 
-# Sample(Bac1~9)において、各ASVsが出現したSample数(存在頻度)を出力
-# taxa_are_rows → ASVsが行が列かどうかを確認
+## Sample(Bac1~9)において、各ASVsが出現した(>0)Sample数(存在頻度)を出力
+## taxa_are_rows → ASVsが行が列かどうかを確認
 prev0 = apply(X = otu_table(PhyseqData),
               MARGIN = ifelse(taxa_are_rows(PhyseqData), yes = 1, no = 2),
               FUN = function(x){sum(x > 0)})
 
-# DataFrameの作成
+## DataFrameの作成
 prevdf = data.frame(Prevalence = prev0,
                     TotalAbundance = taxa_sums(PhyseqData),
                     tax_table(PhyseqData))
+# write.csv(x = prevdf, file = "~/Documents/RStudio/Novogene/250503/export_csv/prevdf.csv")
 
-# 全ASVsのベクトル(ID)を取り出す → TotalReads(ASVs) > 10でフィルタリング
-# keep_taxa <- taxa_names(PhyseqData)[taxa_sums(PhyseqData) >= 10]
-# ps_filt <- prune_taxa(keep_taxa, PhyseqData)
+## 全ASVsのベクトル(ID)を取り出す → TotalReads(全SampleのASVs) > 10でフィルタリング
+## keep_taxa <- taxa_names(PhyseqData)[taxa_sums(PhyseqData) >= 10]
+## ps_filt <- prune_taxa(keep_taxa, PhyseqData)
 
 
-# 門(Phylum)レベルで、tableを出力、各Phylumレベルで分類されたベクトルに対して、[ASVs数>5]でFiltering
-# つまり、ASVsが全Sampleの中で、5回以上出現していないといけない[ASVs1~5 = "Pseudomas"]的な
-keepPhyla = table(prevdf$Phylum)[(table(prevdf$Phylum) > 5)]
+## 門(Phylum)レベルで、tableを出力、各Phylumレベルで分類されたベクトルに対して、[ASVs数>5]でFiltering
+## ASVsが全Sampleの中で、5回以上出現していないといけない 
+## 例: ASV1 Bac1~4のみで>0の場合、除去される
+## → 比較したい処理区内でのSample数を考慮すること
 
-prevdf1 = subset(prevdf, Phylum %in% names(keepPhyla))
 
-# 全sample数のうち、何sampleでASVsが出現していれば、良いかの基準を設定
-# 0.1の割合だと、9sampleの場合、1sampleで出現していればいいことになるため、1で設定
+## 全sample数のうち、何sampleで同一のASVsが出現していれば、良いかの基準を設定
+## 0.1の割合だと、9sampleの場合、0.9となり、1sampleで出現していればいいことになるため、1で設定
 prevalenceThreshold = 1
 prevalenceThreshold
 
-# Execute prevalence filter, using `prune_taxa()` function
-ps1 = prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
-ps1
+
+## Phylum ------------------------------------
+
+keepPhyla = table(prevdf$Phylum)[(table(prevdf$Phylum) > 5)]
+prevdf_phylum = subset(prevdf, Phylum %in% names(keepPhyla))
+table(prevdf_phylum$Phylum)
 
 
-ps2 = subset_taxa(ps1, Phylum %in% names(keepPhyla))
-ps2
-
-Taxa_prevalence_total_counts <- 
-    ggplot(prevdf1, aes(TotalAbundance, Prevalence, color = Phylum)) +
+prevdf_phylum_subset_prevelence_plot <- 
+    ggplot(prevdf_phylum, aes(TotalAbundance, Prevalence, color = Phylum)) +
     geom_hline(yintercept = prevalenceThreshold, alpha = 0.5, linetype = 2) +
-    geom_point(size = 2, alpha = 0.7) +
-    scale_y_log10() + scale_x_log10() +
-    xlab("Total Abundance") +
+    geom_point(size = 1.5, alpha = 0.8) +
+    scale_x_log10() +
+    xlab("Total Abundance") + ylab("Prevalence") +
     facet_wrap(~Phylum) +
-    theme(legend.position = "none")
+    theme(
+        axis.title = element_text(size = 14, face = "bold", color = "black"),   # 軸タイトル：大きく太く黒
+        axis.text = element_text(size = 12, face = "bold", color = "black"),    # 軸目盛：少し大きく太く黒
+        strip.text = element_text(size = 12, face = "bold", color = "black"),   # ファセット見出し
+        panel.grid.minor = element_blank(),                                     # 補助グリッド除去でスッキリ
+        legend.position = "none"                                                # 凡例非表示
+    )
 
-# save(Taxa_prevalence_total_counts,
-#      file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotPhyloseqData/Taxa_prevalence_total_counts.RData")
+
+## Execute prevalence filter, using `prune_taxa()` function
+prevdf_phylum_filt = phyloseq::prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
+prevdf_phylum_filt
+
+
+prevdf_phylum_subset = subset_taxa(prevdf_phylum_filt, Phylum %in% names(keepPhyla))
+prevdf_phylum_subset
+
+
+## Class -------------------------------------
+
+keepClass = table(prevdf$Class)[(table(prevdf$Class) > 5)]
+prevdf_Class = subset(prevdf, Class %in% names(keepClass))
+table(prevdf_Class$Class)
+
+
+
+## Order -------------------------------------
+
+keepOrder = table(prevdf$Order)[(table(prevdf$Order) > 5)]
+prevdf_Order = subset(prevdf, Order %in% names(keepOrder))
+table(prevdf_Order$Order)
+
+
+
+## Family ------------------------------------
+
+keepFamily = table(prevdf$Family)[(table(prevdf$Family) > 5)]
+prevdf_Family = subset(prevdf, Class %in% names(keepFamily))
+table(prevdf_Family$Family)
+
+
+
+## Genus -------------------------------------
+
+keepGenus = table(prevdf$Genus)[(table(prevdf$Genus) > 5)]
+prevdf_Genus = subset(prevdf, Genus %in% names(keepGenus))
+table(prevdf_Genus$Genus)
+
+
+
+
+save(prevdf1_prevelence_plot_Bac,
+     file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/prevdf1_prevelence_plot_Bac.RData")
+
+
+dev.off()
+
 
 
 # Agglomerate closely related taxa ----------

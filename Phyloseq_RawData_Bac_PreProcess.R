@@ -10,7 +10,7 @@ library(phyloseq)
 library(ggplot2)
 library(cowplot)
 
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData_Bac.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Plot/Prevelence_inTaxa.RData")
 ls()
 
@@ -57,7 +57,7 @@ prevalenceThreshold
 ## Phylum ------------------------------------
 
 keepPhyla = table(prevdf$Phylum)[(table(na.omit(prevdf$Phylum)) > 5)] # 全Sample中、5つ以上でPrelvalenceと指定
-prevdf_phylum = subset(prevdf_phylum, Phylum %in% names(keepPhyla))
+prevdf_phylum = subset(prevdf_phylum, Phylum %in% names(keepPhyla)) # names()は大事
 table(prevdf_phylum$Phylum)
 
 
@@ -315,6 +315,14 @@ rm(list = ls())
 
 rank_names(PhyseqData)
 
+ps1 = prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
+ps1
+
+
+ps2 = subset_taxa(ps1, Phylum %in% names(keepPhyla))
+ps2
+
+
 # ps2は、フィルタリングされてきたphyseqObjects
 ID <- rank_names(PhyseqData)
 for (i in ID) {
@@ -381,44 +389,348 @@ plot_bar(ps_Pseudomonadota, fill = "Genus")
 # physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
 
 
+
 # FilteringMethods --------------------------
+## RelativeAbundunce -------------------------
+### Color_Setting -----------------------------
 
-# Family Level 
+library(phyloseq)
+library(ggplot2)
+library(cowplot)
+library(dplyr)
+library(scales)
 
-PhyseqData_Family <- PhyseqData  |> 
-    tax_glom(taxrank = "Family") |>                        # agglomerate at phylum level
+colors <- c(
+    "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", 
+    "#e6ab02", "#a6761d", "#666666", "#8dd3c7", "#ffffb3",
+    "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", 
+    "#fccde5", "#bc80bd", "#ccebc5", "#ffed6f", "#7fc97f", 
+    "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", 
+    "#6a3d9a", "#cab2d6", "#ff7f00", "#b2df8a", "#a6cee3", 
+    "#fb9a99", "#1f78b4", "#33a02c", "#b15928")
+
+color_v2 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
+              "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF", "#F0E442", "#9E14D2",
+              "#7D8B33", "#B5F56D", "#3F51B5", "#D32F2F", "#0288D1", "#7B1FA2", 
+              "#388E3C", "#FBC02D", "#0288D1", "#8BC34A", "#FF5722", "#8E24AA", 
+              "#795548", "#9C27B0", "#3F51B5", "#4CAF50", "#FF9800", "#E91E63", 
+              "#CDDC39")
+
+colors_v3 <- c(colors, "#9999FF", "#FF99CC", "#66FFFF")
+
+
+### Phylum Level -------------------------------
+
+PhyseqData_Phylum <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Phylum") %>%                        # agglomerate at phylum level
     transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
     psmelt()  |>                                            # Melt to long format
     filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
-    arrange(desc(Family))                                   # Sort data frame alphabetically by phylum
+    arrange(desc(Phylum))
 
-PhyseqData_Family$dps <- factor(PhyseqData_Family$dps, levels = c(0, 3, 7))
-unique(PhyseqData_Family$Family) 
+unique(psmelt(PhyseqData)$Phylum)
+length(unique(psmelt(PhyseqData)$Phylum))
 
-write.csv(PhyseqData_Family,
-          file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData_Family.csv", 
-          row.names = TRUE) 
+Descending_Phylum <- PhyseqData_Phylum |> 
+    group_by(Phylum)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Phylum)
+
+PhyseqData_Phylum$Phylum <- factor(PhyseqData_Phylum$Phylum, levels = Descending_Phylum)
+
+ggplot(PhyseqData_Phylum, aes(x = dps, y = Abundance, fill = Phylum)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Phylum > 1%) \n") +
+    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+ggsave(filename = "Relative_abundance_Phylum.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-# Genus Level 
+ggplot(PhyseqData_Phylum, aes(x = Sample.Name, y = Abundance, fill = Phylum)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Samples") +
+    ylab("Relative Abundance (Phylum > 1%) \n") +
+    theme(axis.title = element_text(size = 16, face = "bold",color = "black"),
+          axis.text = element_text(size = 10, color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 16, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.key.size = unit(3, "cm"))
 
+ggsave(filename = "Relative_abundance_Phylum_SampleName.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### Class Level -------------------------------
+
+PhyseqData_Class <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Class")  |>                         # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Class))
+
+unique(psmelt(PhyseqData)$Class)
+length(unique(psmelt(PhyseqData)$Class))
+
+Descending_Class <- PhyseqData_Class  |> 
+    group_by(Class)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Class)
+
+PhyseqData_Class$Class <- factor(PhyseqData_Class$Class, levels = Descending_Class)
+
+ggplot(PhyseqData_Class, aes(x = dps, y = Abundance, fill = Class)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Class > 1%) \n") +
+    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+ggsave(filename = "Relative_abundance_Class.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Class, aes(x = Sample.Name, y = Abundance, fill = Class)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Samples") +
+    ylab("Relative Abundance (Class > 1%) \n") +
+    theme(axis.title = element_text(size = 16, face = "bold",color = "black"),
+          axis.text = element_text(size = 10, color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 16, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.key.size = unit(3, "cm"))
+
+ggsave(filename = "Relative_abundance_Class_SampleName.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+### Order Level -------------------------------
+
+PhyseqData_Order <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Order")  |>                         # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Order))
+
+unique(psmelt(PhyseqData)$Order)
+length(unique(psmelt(PhyseqData)$Order))
+
+Descending_Order <- PhyseqData_Order  |> 
+    group_by(Order)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Order)
+
+PhyseqData_Order$Order <- factor(PhyseqData_Order$Order, levels = Descending_Order)
+
+ggplot(PhyseqData_Order, aes(x = dps, y = Abundance, fill = Order)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Order > 1%) \n") +
+    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+ggsave(filename = "Relative_abundance_Order.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Order, aes(x = Sample.Name, y = Abundance, fill = Order)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Samples") +
+    ylab("Relative Abundance (Order > 1%) \n") +
+    theme(axis.title = element_text(size = 16, face = "bold",color = "black"),
+          axis.text = element_text(size = 10, color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 16, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.key.size = unit(3, "cm"))
+
+ggsave(filename = "Relative_abundance_Order_SampleName.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### Family Level  -----------------------------
+
+PhyseqData_Family <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Family")  |>                         # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Family))
+    
+unique(psmelt(PhyseqData)$Family)
+length(unique(psmelt(PhyseqData)$Family))
+
+Descending_Family <- PhyseqData_Family  |> 
+    group_by(Family)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Family)
+
+PhyseqData_Family$Family <- factor(PhyseqData_Family$Family, levels = Descending_Family)
+
+ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+ggsave(filename = "Relative_abundance_Family.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+       
+       
+ggplot(PhyseqData_Family, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Samples") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    theme(axis.title = element_text(size = 16, face = "bold",color = "black"),
+          axis.text = element_text(size = 10, color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 16, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.key.size = unit(3, "cm"))
+
+ggsave(filename = "Relative_abundance_Family_SampleName.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### Genus Level  ------------------------------
 PhyseqData_Genus <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
     tax_glom(taxrank = "Genus") |>                        
     transform_sample_counts(function(x) {x/sum(x)} )  |>   
     psmelt()  |>                                           
     filter(Abundance > 0.01)  |>                           
     arrange(desc(Genus))
 
-PhyseqData_Genus$dps <- factor(PhyseqData_Genus$dps, levels = c(0, 3, 7))
 
-write.csv(PhyseqData_Genus,
-          file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData_Genus.csv", 
-          row.names = TRUE) 
-
-unique(PhyseqData_Genus$Genus) 
-
-# PhyseqDataの分類レベルにおけるuniqueな分類の総数
 unique(psmelt(PhyseqData)$Genus)
+length(unique(psmelt(PhyseqData)$Genus))
+
+
+Descending_Genus <- PhyseqData_Genus  |> 
+    group_by(Genus)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Genus)
+
+PhyseqData_Genus$Genus <- factor(PhyseqData_Genus$Genus, levels = Descending_Genus)
+
+ggplot(PhyseqData_Genus, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_v3) +
+    guides(fill = guide_legend(reverse = F, keywidth = 0.7, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
+          axis.text = element_text(size = 10, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+ggsave(filename = "Relative_abundance_Genus.png", plot = last_plot(),
+       width = 2000, height = 1800, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Genus, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_v3) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Samples") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    theme(axis.title = element_text(size = 16, face = "bold",color = "black"),
+          axis.text = element_text(size = 10, color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 16, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.key.size = unit(3, "cm"))
+
+ggsave(filename = "Relative_abundance_Genus_SampleName.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
 
 
 ## Top 50 Filtering --------------------------

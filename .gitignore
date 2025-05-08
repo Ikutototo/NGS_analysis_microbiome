@@ -7,3 +7,4 @@ RData/**
 docs/**
 Phyloseq_RawData_Bac_images/**
 /.quarto/
+png/**

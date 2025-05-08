@@ -1,31 +1,21 @@
-/* 赤いマーク */
+/* オレンジマーク */
 .mark-red {
-  background-color: #ffcccc;
+  background-color: #f39c12;
   padding: 2px 4px;
   border-radius: 3px;
 }
 
 
-/* 赤いマーク */
+/* パープルマーク */
 .mark-yellow {
-  background-color: #ffc107;
-  color: black;
+  background-color: #bd93f9;
   padding: 2px 4px;
   border-radius: 4px;
 }
 
-
-/* 青いマーク */
-.mark-blue {
-  background-color: #cce5ff;
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-
-
 /* 水色マーク */
 .mark-cyan {
-  background-color: #0dcaf0;
+  background-color: #66d9ef;
   padding: 2px 4px;
   border-radius: 3px;
 }
@@ -33,7 +23,7 @@
 
 /* 緑のマーク */
 .mark-green {
-  background-color: #d4edda;
+  background-color: #a2fca2;
   padding: 2px 4px;
   border-radius: 3px;
 }
@@ -58,10 +48,4 @@ code span.kw {
 }
 
 
-pre > code {
-  background-color: #1e1e1e; /* コードチャンクの背景色 */
-  color: #abb2bf; /* コードチャンク内の文字色 */
-  padding: 1em;
-  border-radius: 4px;
-}
 

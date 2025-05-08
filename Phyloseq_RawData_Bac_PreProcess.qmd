@@ -2,7 +2,8 @@
 title: "Phyloseq_RawData_Bacteria_PreProcess"
 ---
 
-# Reference & Memo
+::: callout-note
+## Reference & Memo
 
 \[R Package\] [Scales](https://scales.r-lib.org/)
 
@@ -21,13 +22,6 @@ title: "Phyloseq_RawData_Bacteria_PreProcess"
 [ggtreeExtra HP](https://bioconductor.org/packages/release/bioc/vignettes/ggtreeExtra/inst/doc/ggtreeExtra.html)
 
 [Metagenomic biomarker discovery and explanation](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2011-12-6-r60)
-
-::: callout-note
-## DataLocation
-
-ASVsTable (何も処理をしていないTable)
-
-'\~/Library/CloudStorage/GoogleDrive-saito2022\@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ASVsTable.csv'
 :::
 
 # NGS Analysis Flow
@@ -78,7 +72,7 @@ Differences in fungal and prokaryotic community composition were tested through 
 ::: callout-note
 ## Differentially abundant taxa
 
-[**有意に存在量が異なる分類群(ASVs)の探索**]{.mark-blue}
+[**有意に存在量が異なる分類群(ASVs)の探索**]{.mark-cyan}
 
 ・相対存在量の比較(one-way ANOVA, LSD)\
 → 主要な分類群の特徴を探索
@@ -129,7 +123,7 @@ In WNWN, a pseudo-count of 1 was used. However, this value is arbitrary and the 
 
 Since WNWN was published, compositional approaches have been proposed to account for uneven sequencing and to provide improved interpretability (14, 16–18, 44, 45). However, these methods also often require the use of pseudo-counts. Rarefaction is preferred to these alternatives.
 
-[The choice of distance metric is a complicated question]{.mark-green} → Note_KeyNotes (SCISPACE)を参照 → Rarefactionが、サンプルで異なるシーケンス深度の影響を制御する唯一の方法であるかもしれない...、相対存在量の利用にも注意が必要 → Referenceの論文も読んでみる
+[The choice of distance metric is a complicated question]{.mark-cyan} → Note_KeyNotes (SCISPACE)を参照 → Rarefactionが、サンプルで異なるシーケンス深度の影響を制御する唯一の方法であるかもしれない...、相対存在量の利用にも注意が必要 → Referenceの論文も読んでみる
 :::
 
 ::: callout-note
@@ -182,13 +176,6 @@ Differentially abundant taxa resulting from fungicide application were identi ed
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
-library("MicrobiotaProcess")
-library("phyloseq")
-library("dplyr")
-library("purrr")
-library("ggplot2")
-library("scales")
-
 # https://astrobiomike.github.io/amplicon/dada2_workflow_ex
 
 ```
@@ -225,23 +212,19 @@ OTU(or ASVs)は通常、**できるだけ細かい分類（種レベルなど）
 >     → 全ての属を統合するなら、以下のように分類単位を指定すれば良い\
 >     `tax_glom(physeqオブジェクト, taxrank = "Family", NArm = true/false)`
 >
->     → [**統合後は、統合した分類レベル以降は、NAで表示される**]{.mark-blue}
+>     → **統合後は、統合した分類レベル以降は、NAで表示される**
 
 ------------------------------------------------------------------------
 
-`data("GlobalPatterns")`
+data("GlobalPatterns")
 
-`GP.chl = subset_taxa(GlobalPatterns, Phylum=="Chlamydiae") GP.chl = prune_samples(sample_sums(GP.chl)>=20, GP.chl)`
+GP.chl = subset_taxa(GlobalPatterns, Phylum=="Chlamydiae") GP.chl = prune_samples(sample_sums(GP.chl)\>=20, GP.chl)
 
-`GP.chl.merged = merge_taxa(GP.chl, taxa_names(GP.chl)[1:5])`
+GP.chl.merged = merge_taxa(GP.chl, taxa_names(GP.chl)\[1:5\])
 
-`ExportCSVData_GP.chl <- cbind(GP.chl@otu_table@.Data, GP.chl@tax_table@.Data)`
+ExportCSVData_GP.chl \<- cbind(GP.chl\@otu_table\@.Data, GP.chl\@tax_table\@.Data)
 
-`write.csv(ExportCSVData_GP.chl, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData_GP.chl.csv", row.names = TRUE)`
-
-`ExportCSVData_GP.chl.merged <- cbind(GP.chl.merged@otu_table@.Data, GP.chl.merged@tax_table@.Data)`
-
-`write.csv(ExportCSVData_GP.chl.merged, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData_GP.chl.merged.csv", row.names = TRUE)`
+ExportCSVData_GP.chl.merged \<- cbind(GP.chl.merged\@otu_table\@.Data, GP.chl.merged\@tax_table\@.Data)
 
 統合前
 
@@ -256,9 +239,98 @@ OTU(or ASVs)は通常、**できるだけ細かい分類（種レベルなど）
 
 # PreProcess Methods
 
-## PreProcess Methods Scripts
+## Prevalence filtering in Taxa:
 
-## Prevalence filtering:
+### Phylum
+
+```{r}
+#| label: Plots_Prevalence_Filtering_Phylum
+#| eval: true
+#| Include: false
+
+
+library("phyloseq")
+library("dplyr")
+library("purrr")
+library("ggplot2")
+library("scales")
+library("cowplot")
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Plot/Prevelence_inTaxa.RData")
+
+prevdf_phylum_prevelence_plot
+ggdraw(Phylum_legend_only)
+
+```
+
+### Class
+```{r}
+#| label: Plots_Prevalence_Filtering_Class
+#| eval: true
+#| Include: false
+
+
+for (i in seq_along(plot_list_Class)) {
+  if (is.null(plot_list_Class[[i]]) || is.null(plot_list_Class_legend[[i]])) next
+
+  print(plot_list_Class[[i]])
+  grid::grid.newpage()
+  grid::grid.draw(plot_list_Class_legend[[i]])
+
+}
+
+```
+
+### Order
+```{r}
+#| label: Plots_Prevalence_Filtering_Order
+#| eval: true
+#| Include: false
+
+
+for (i in seq_along(plot_list_Order)) {
+  if (is.null(plot_list_Order[[i]]) || is.null(plot_list_Order_legend[[i]])) next
+
+  print(plot_list_Order[[i]])
+  grid::grid.newpage()
+  grid::grid.draw(plot_list_Order_legend[[i]])
+}
+
+
+```
+
+### Family
+```{r}
+#| label: Plots_Prevalence_Filtering_Family
+#| eval: true
+#| Include: false
+
+for (i in seq_along(plot_list_Family)) {
+  if (is.null(plot_list_Family[[i]]) || is.null(plot_list_Family_legend[[i]])) next
+
+  print(plot_list_Family[[i]])
+  grid::grid.newpage()
+  grid::grid.draw(plot_list_Family_legend[[i]])
+
+}
+
+
+```
+
+
+### Genus
+```{r}
+#| label: Plots_Prevalence_Filtering_Genus
+#| eval: true
+#| Include: false
+
+for (i in plot_list_Genus) {
+    print(i)
+}
+
+
+```
+
 
 ```{r}
 #| label: Prevalence filtering
@@ -266,140 +338,229 @@ OTU(or ASVs)は通常、**できるだけ細かい分類（種レベルなど）
 #| Include: false
 
 
-# Sample(Bac1~9)において、各ASVsが出現したSample数(存在頻度)を出力
-# taxa_are_rows → ASVsが行が列かどうかを確認
+# Prevalence filtering ----------------------
+
+## Sample(Bac1~9)において、各ASVsが出現した(>0)Sample数(存在頻度)を出力
+## taxa_are_rows → ASVsが行が列かどうかを確認
 prev0 = apply(X = otu_table(PhyseqData),
               MARGIN = ifelse(taxa_are_rows(PhyseqData), yes = 1, no = 2),
               FUN = function(x){sum(x > 0)})
 
-# DataFrameの作成
+## DataFrameの作成
 prevdf = data.frame(Prevalence = prev0,
                     TotalAbundance = taxa_sums(PhyseqData),
                     tax_table(PhyseqData))
+# write.csv(x = prevdf, file = "~/Documents/RStudio/Novogene/250503/export_csv/prevdf.csv")
 
-# 全ASVsのベクトル(ID)を取り出す → TotalReads(ASVs) > 10でフィルタリング
-# keep_taxa <- taxa_names(PhyseqData)[taxa_sums(PhyseqData) >= 10]
-# ps_filt <- prune_taxa(keep_taxa, PhyseqData)
+## 全ASVsのベクトル(ID)を取り出す → TotalReads(全SampleのASVs) > 10でフィルタリング
+## keep_taxa <- taxa_names(PhyseqData)[taxa_sums(PhyseqData) >= 10]
+## ps_filt <- prune_taxa(keep_taxa, PhyseqData)
 
 
-# 門(Phylum)レベルで、tableを出力、各Phylumレベルで分類されたベクトルに対して、[ASVs数>5]でFiltering
-# つまり、ASVsが全Sampleの中で、5回以上出現していないといけない[ASVs1~5 = "Pseudomas"]的な
-keepPhyla = table(prevdf$Phylum)[(table(prevdf$Phylum) > 5)]
+## 各分類(Phylum)レベルで、tableを出力、各分類(Phylum)レベルで分類されたベクトルに対して、[ASVs数>5]でFiltering
+## ASVsが全Sampleの中で、5回以上出現していないといけない 
+## 例: ASV1 Bac1~4のみで>0の場合、除去される
+## → 比較したい処理区内でのSample数を考慮すること
 
-prevdf1 = subset(prevdf, Phylum %in% names(keepPhyla))
 
-# 全sample数のうち、何sampleでASVsが出現していれば、良いかの基準を設定
-# 0.1の割合だと、9sampleの場合、1sampleで出現していればいいことになるため、1で設定
+## 全sample数のうち、何sampleで同一のASVsが出現していれば、良いかの基準を設定
+## 0.1の割合だと、9sampleの場合、0.9となり、1sampleで出現していればいいことになるため、1で設定
 prevalenceThreshold = 1
 prevalenceThreshold
 
 
-# Execute prevalence filter, using `prune_taxa()` function
-ps1 = prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
-ps1
+## Phylum ------------------------------------
+
+keepPhyla = table(prevdf$Phylum)[(table(prevdf$Phylum) > 5)]
+prevdf_phylum = subset(prevdf, Phylum %in% names(keepPhyla))
+table(prevdf_phylum$Phylum)
 
 
-ps2 = subset_taxa(ps1, Phylum %in% names(keepPhyla))
-ps2
-
-Taxa_prevalence_total_counts <- 
-    ggplot(prevdf1, aes(TotalAbundance, Prevalence, color = Phylum)) +
+prevdf_phylum_subset_prevelence_plot <- 
+    ggplot(prevdf_phylum, aes(TotalAbundance, Prevalence, color = Phylum)) +
     geom_hline(yintercept = prevalenceThreshold, alpha = 0.5, linetype = 2) +
-    geom_point(size = 2, alpha = 0.7) +
-    scale_y_log10() + scale_x_log10() +
-    xlab("Total Abundance") +
+    geom_point(size = 1.5, alpha = 0.8) +
+    scale_x_log10() +
+    xlab("Total Abundance") + ylab("Prevalence") +
     facet_wrap(~Phylum) +
-    theme(legend.position = "none")
-
-Taxa_prevalence_total_counts
-
-# save(Taxa_prevalence_total_counts,
-#      file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/PlotPhyloseqData/Taxa_prevalence_total_counts.RData")
-
-
-## Agglomerate closely related taxa ----------
+    theme(
+        axis.title = element_text(size = 14, face = "bold", color = "black"),  
+        axis.text = element_text(size = 12, face = "bold", color = "black"),   
+        strip.text = element_text(size = 12, face = "bold", color = "black"),  
+        panel.grid.minor = element_blank(),                                    
+        legend.position = "none"                                               
+    )
 
 
-# rank_names(PhyseqData)
-# 
-# # ps2は、フィルタリングされてきたphyseqObjects
-# ID <- rank_names(PhyseqData)
-# for (i in ID) {
-#     print(length(get_taxa_unique(ps2, taxonomic.rank = i)))
+## Class -------------------------------------
+
+keepClass = table(prevdf$Class)[(table(prevdf$Class) > 5)]
+prevdf_Class = subset(prevdf, Class %in% names(keepClass))
+table(prevdf_Class$Class)
+
+
+## 出現数順でsortして上位40・下位40で分割
+class_counts <- sort(table(prevdf_Class$Class), decreasing = TRUE)
+top_classes <- names(class_counts)[1:41]
+bottom_classes <- names(class_counts)[42:83]
+
+
+## Top & Bottomでsubset
+prevdf_Class_top <- subset(prevdf_Class, Class %in% top_classes)
+prevdf_Class_bottom <- subset(prevdf_Class, Class %in% bottom_classes)
+
+
+prevdf_class_top40_prevelence_plot <- 
+ggplot(prevdf_Class_top, aes(TotalAbundance, Prevalence, color = Class)) +
+    geom_hline(yintercept = prevalenceThreshold, alpha = 0.5, linetype = 2) +
+    geom_point(size = 1.5, alpha = 0.8) +
+    scale_x_log10() +
+    xlab("Total Abundance") + ylab("Prevalence") +
+    facet_wrap(~Class, scales = "free_y") +
+    theme(
+        axis.title = element_text(size = 14, face = "bold", color = "black"),
+        axis.text = element_text(size = 12, face = "bold", color = "black"),
+        strip.text = element_text(size = 12, face = "bold", color = "black"),
+        panel.grid.minor = element_blank(),
+        legend.position = "none"
+    )
+
+
+prevdf_class_bottom40_prevelence_plot <- 
+ggplot(prevdf_Class_bottom, aes(TotalAbundance, Prevalence, color = Class)) +
+    geom_hline(yintercept = prevalenceThreshold, alpha = 0.5, linetype = 2) +
+    geom_point(size = 1.5, alpha = 0.8) +
+    scale_x_log10() + 
+    xlab("Total Abundance") + ylab("Prevalence") +
+    facet_wrap(~Class, scales = "free_y") +
+    theme(
+        axis.title = element_text(size = 14, face = "bold", color = "black"),
+        axis.text = element_text(size = 12, face = "bold", color = "black"),
+        strip.text = element_text(size = 12, face = "italic", color = "black"),
+        panel.grid.minor = element_blank(),
+        legend.position = "none"
+    )
+
+## Order -------------------------------------
+
+keepOrder = table(prevdf$Order)[(table(prevdf$Order) > 5)]
+prevdf_Order = subset(prevdf, Order %in% names(keepOrder))
+table(prevdf_Order$Order)
+
+
+class_counts_Order <- sort(table(na.omit(prevdf_Order$Order)), decreasing = TRUE)
+length(class_counts_Order) 
+order_chunks <- split(class_counts_Order, ceiling(seq_along(class_counts_Order) / 27)) # facet(~??)で分割したい数を指定
+
+
+plot_list_order <- list() 
+for (i in seq_along(order_chunks)) {
+    subset_df <- subset(prevdf_Order, Order %in% names(order_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Order)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Class") + ylab("Prevalence") +
+        facet_wrap(~Order) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.position = "none")
+    
+    plot_list_order[[i]] <- p
+}
+
+
+# for (i in plot_list_order) {
+#     print(i)
 # }
-# 
-# ps3 = tax_glom(ps2, taxrank = "Genus")
 
 
-## Abundance value transformation ------------
+## Family ------------------------------------
 
-# meltphyseq = psmelt(ps3)
-# meltphyseq_v1 <- meltphyseq |> filter(Phylum == "Pseudomonadota")
+keepFamily = table(prevdf$Family)[(table(prevdf$Family) > 5)]
+prevdf_Family = subset(prevdf, Family %in% names(keepFamily))
+table(prevdf_Family$Family)
 
-# write.csv(meltphyseq_v1, 
-#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/meltphyseq.csv")
-
-# orders <- unique(meltphyseq$Order)
-# plot_list <- list()
-# 
-# for (order in orders) {
-#     filt <- meltphyseq |> filter(Order == order)
-#     
-#     p <- ggplot(data = filt, mapping = aes(x = dps, y = Abundance)) +
-#         # バイオリンプロットの設定
-#         geom_violin(aes(fill = dps), alpha = 0.3, position = position_nudge(x = 0.1)) +  # バイオリンを少しずらす
-#         # ポイントの設定
-#         geom_point(aes(color = Sample.Name), size = 3, alpha = 0.8) + 
-#         # ポイントの色をSample.Nameに基づいて変更
-#         ylab(paste(order)) +  # y軸ラベルにOrder名を使用
-#         scale_y_log10() +  # y軸をログスケール
-#         scale_x_continuous(breaks = c(0, 3, 7)) +  # x軸のラベル設定
-#         theme_minimal()  # グラフのテーマを設定
-#     
-#     # プロットをリストに格納
-#     plot_list[[order]] <- p
-# }
+class_counts_Family <- sort(table(na.omit(prevdf_Family$Family)), decreasing = TRUE)
+length(class_counts_Family) 
+Family_chunks <- split(class_counts_Family, ceiling(seq_along(class_counts_Family) / 19)) # facet(~??)で分割したい数を指定
 
 
-## 最初のプロットを表示
-# print(plot_list[[1]])
-# 
-# length(get_taxa_unique(ps2, taxonomic.rank = "Phylum"))
+plot_list_Family <- list() 
+for (i in seq_along(Family_chunks)) {
+    subset_df <- subset(prevdf_Family, Family %in% names(Family_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Family)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Family") + ylab("Prevalence") +
+        facet_wrap(~Family) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.position = "none")
+    
+    plot_list_Family[[i]] <- p
+}
 
 
-# prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
-# ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
-# write.csv(ExportCSVData, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData.csv",
-#           row.names = TRUE)
 
-# Remove taxa not seen more than 3 times in at least 20% of the samples. This protects against an OTU with small mean & trivially large C.V.
-# filter_taxa(PhyseqData, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+## Genus -------------------------------------
 
+keepGenus = table(prevdf$Genus)[(table(prevdf$Genus) > 5)] 
+prevdf_Genus = subset(prevdf, Genus %in% names(keepGenus))
+table(prevdf_Genus$Genus)
 
-# Standardize abundances to the median sequencing depth
-# sample間で異なるリード数(シーケンス深度)を一致させるため
-# total = median(sample_sums(physeqData))
-# standf = function(x, t=total) round(t * (x / sum(x)))
-# physeqData_sd = transform_sample_counts(physeqData, standf)
+class_counts_Genus <- sort(table(na.omit(prevdf_Genus$Genus)), decreasing = TRUE)
+length(class_counts_Genus) 
+Genus_chunks <- split(class_counts_Genus, ceiling(seq_along(class_counts_Genus) / 11)) # facet(~??)で分割したい数を指定
 
 
-# Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
-# physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
+plot_list_Genus <- list() 
+for (i in seq_along(Genus_chunks)) {
+    subset_df <- subset(prevdf_Genus, Genus %in% names(Genus_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Genus)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Genus") + ylab("Prevalence") +
+        facet_wrap(~Genus) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.position = "none")
+    
+    plot_list_Genus[[i]] <- p
+}
 
+rm(list = ls())
 
 ```
 
 ## Filtering Methods:
 
 ```{r}
-#| label: PreProcess & Plot & save
+#| label: PreProcess & Plot
 #| eval: true
 #| Include: false
 #| out-width: 90%
 #| fig-align: center
 
 
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData_Bac.RData")
 
 PhyseqData
 MetaData
@@ -569,7 +730,7 @@ rm(list = ls())
 ::: callout-warning
 ## Abundance value transformation
 
-[**It is usually necessary to transform microbiome count data to account for differences in library size, variance, scale, etc.**]{.mark-green}
+[**It is usually necessary to transform microbiome count data to account for differences in library size, variance, scale, etc.**]{.mark-cyan}
 
 `transform_sample_counts`:
 
@@ -1055,7 +1216,7 @@ The values in the matrix should be counts or estimated counts of sequencing read
 This is important for `DESeq2`’s statistical model to hold, as only counts allow assessing the measurement precision correctly\
 It is important to never provide **counts that were pre-normalized for sequencing depth/library size, as the statistical model is most powerful when applied to un-normalized counts**, and is designed to account for library size differences internally\
 The object class used by the DESeq2 package to store the read counts and the intermediate estimated quantities during statistical analysis is the **DESeqDataSet**, which will usually be represented in the code here as an object `dds`\
-[We will now show 4 ways of constructing a **DESeqDataSet**, depending on what pipeline was used upstream of DESeq2 to generated counts or estimated counts:]{.mark-blue}
+[We will now show 4 ways of constructing a **DESeqDataSet**, depending on what pipeline was used upstream of DESeq2 to generated counts or estimated counts:]{.mark-cyan}
 
 -   From transcript abundance files and tximport
 -   **From a count matrix**
@@ -1113,7 +1274,7 @@ tax_glom(taxrank = "Family") → ASVsの分類群を統合しているため、�
 
 ### Taxa Level in Family Level --------------------------------
 rm(list = ls())
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData_Bac.RData")
 library("phyloseq")
 library("DESeq2")
 

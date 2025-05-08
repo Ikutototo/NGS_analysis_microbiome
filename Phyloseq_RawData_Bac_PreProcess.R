@@ -8,8 +8,11 @@ setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
 library(phyloseq)
 library(ggplot2)
+library(cowplot)
 
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/SaveObjects/PhyloseqData_Bac.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Plot/Prevelence_inTaxa.RData")
+ls()
 
 # Prevalence filtering ----------------------
 
@@ -23,6 +26,8 @@ prev0 = apply(X = otu_table(PhyseqData),
 prevdf = data.frame(Prevalence = prev0,
                     TotalAbundance = taxa_sums(PhyseqData),
                     tax_table(PhyseqData))
+
+prevdf = subset(prevdf, Kingdom == "Bacteria")
 # write.csv(x = prevdf, file = "~/Documents/RStudio/Novogene/250503/export_csv/prevdf.csv")
 
 ## 全ASVsのベクトル(ID)を取り出す → TotalReads(全SampleのASVs) > 10でフィルタリング
@@ -30,7 +35,7 @@ prevdf = data.frame(Prevalence = prev0,
 ## ps_filt <- prune_taxa(keep_taxa, PhyseqData)
 
 
-## 門(Phylum)レベルで、tableを出力、各Phylumレベルで分類されたベクトルに対して、[ASVs数>5]でFiltering
+## 各分類(Phylum)レベルで、tableを出力、各分類(Phylum)レベルで分類されたベクトルに対して、[ASVs数>5]でFiltering
 ## ASVsが全Sampleの中で、5回以上出現していないといけない 
 ## 例: ASV1 Bac1~4のみで>0の場合、除去される
 ## → 比較したい処理区内でのSample数を考慮すること
@@ -41,37 +46,48 @@ prevdf = data.frame(Prevalence = prev0,
 prevalenceThreshold = 1
 prevalenceThreshold
 
+## Execute prevalence filter, using `prune_taxa()` function
+# prevdf_phylum_filt = phyloseq::prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
+# prevdf_phylum_filt
+# 
+# 
+# prevdf_phylum_subset = subset_taxa(prevdf_phylum_filt, Phylum %in% names(keepPhyla))
+# prevdf_phylum_subset
 
 ## Phylum ------------------------------------
 
-keepPhyla = table(prevdf$Phylum)[(table(prevdf$Phylum) > 5)]
-prevdf_phylum = subset(prevdf, Phylum %in% names(keepPhyla))
+keepPhyla = table(prevdf$Phylum)[(table(na.omit(prevdf$Phylum)) > 5)] # 全Sample中、5つ以上でPrelvalenceと指定
+prevdf_phylum = subset(prevdf_phylum, Phylum %in% names(keepPhyla))
 table(prevdf_phylum$Phylum)
 
 
-prevdf_phylum_subset_prevelence_plot <- 
-    ggplot(prevdf_phylum, aes(TotalAbundance, Prevalence, color = Phylum)) +
-    geom_hline(yintercept = prevalenceThreshold, alpha = 0.5, linetype = 2) +
+### Prevalence Plots → Classでラベリングしています
+(prevdf_phylum_prevelence_plot <- 
+    ggplot(prevdf_phylum, aes(TotalAbundance, Prevalence, color = Class)) +
+    geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
     geom_point(size = 1.5, alpha = 0.8) +
     scale_x_log10() +
-    xlab("Total Abundance") + ylab("Prevalence") +
+    xlab("Total Abundance in Phylum") + ylab("Prevalence") +
     facet_wrap(~Phylum) +
-    theme(
-        axis.title = element_text(size = 14, face = "bold", color = "black"),   # 軸タイトル：大きく太く黒
-        axis.text = element_text(size = 12, face = "bold", color = "black"),    # 軸目盛：少し大きく太く黒
-        strip.text = element_text(size = 12, face = "bold", color = "black"),   # ファセット見出し
-        panel.grid.minor = element_blank(),                                     # 補助グリッド除去でスッキリ
-        legend.position = "none"                                                # 凡例非表示
-    )
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none"))
 
+Phylum_legend_only <- get_legend(
+    ggplot(prevdf_phylum, aes(TotalAbundance, Prevalence, color = Class)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Phylum") + ylab("Prevalence") +
+        facet_wrap(~Phylum) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+              panel.grid.minor = element_blank()))
 
-## Execute prevalence filter, using `prune_taxa()` function
-prevdf_phylum_filt = phyloseq::prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
-prevdf_phylum_filt
-
-
-prevdf_phylum_subset = subset_taxa(prevdf_phylum_filt, Phylum %in% names(keepPhyla))
-prevdf_phylum_subset
+ggdraw(Phylum_legend_only)
 
 
 ## Class -------------------------------------
@@ -79,6 +95,58 @@ prevdf_phylum_subset
 keepClass = table(prevdf$Class)[(table(prevdf$Class) > 5)]
 prevdf_Class = subset(prevdf, Class %in% names(keepClass))
 table(prevdf_Class$Class)
+
+
+class_counts_Class <- sort(table(na.omit(prevdf_Class$Class)), decreasing = TRUE)
+length(class_counts_Class) 
+Class_chunks <- split(class_counts_Class, ceiling(seq_along(class_counts_Class) / 9)) # facet(~??)で分割したい数を指定
+
+
+plot_list_Class <- list() 
+for (i in seq_along(Class_chunks)) {
+    subset_df <- subset(prevdf_Class, Class %in% names(Class_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Family)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Class") + ylab("Prevalence") +
+        facet_wrap(~Class) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.position = "none")
+    
+    plot_list_Class[[i]] <- p
+}
+
+### Legendのみのオブジェクト
+plot_list_Class_legend <- list() 
+for (i in seq_along(Class_chunks)) {
+    subset_df <- subset(prevdf_Class, Class %in% names(Class_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- cowplot::get_legend(
+        ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Family)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Class") + ylab("Prevalence") +
+        facet_wrap(~Class) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank()))
+    
+    plot_list_Class_legend[[i]] <- p
+}
+
+grid::grid.newpage()
+grid::grid.draw(plot_list_Class_legend[[1]]) # ggdraw()にlistを渡さないこと、[[]]で渡す
 
 
 
@@ -89,29 +157,157 @@ prevdf_Order = subset(prevdf, Order %in% names(keepOrder))
 table(prevdf_Order$Order)
 
 
+class_counts_Order <- sort(table(na.omit(prevdf_Order$Order)), decreasing = TRUE)
+length(class_counts_Order) 
+Order_chunks <- split(class_counts_Order, ceiling(seq_along(class_counts_Order) / 9)) # facet(~??)で分割したい数を指定
+
+
+plot_list_Order <- list() 
+for (i in seq_along(Order_chunks)) {
+    subset_df <- subset(prevdf_Order, Order %in% names(Order_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Family)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Order") + ylab("Prevalence") +
+        facet_wrap(~Order) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.position = "none")
+    
+    plot_list_Order[[i]] <- p
+}
+
+### Legendのみのオブジェクト
+plot_list_Order_legend <- list() 
+for (i in seq_along(Order_chunks)) {
+    subset_df <- subset(prevdf_Order, Order %in% names(Order_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- cowplot::get_legend(
+        ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Family)) +
+            geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+            geom_point(size = 1.5, alpha = 0.8) +
+            scale_x_log10() +
+            xlab("Total Abundance in Order") + ylab("Prevalence") +
+            facet_wrap(~Order) +
+            theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+                  axis.text = element_text(size = 12, face = "bold", color = "black"),
+                  strip.text = element_text(size = 14, face = "italic", color = "black"),
+                  panel.grid.minor = element_blank()))
+    
+    plot_list_Order_legend[[i]] <- p
+}
+
 
 ## Family ------------------------------------
 
 keepFamily = table(prevdf$Family)[(table(prevdf$Family) > 5)]
-prevdf_Family = subset(prevdf, Class %in% names(keepFamily))
+prevdf_Family = subset(prevdf, Family %in% names(keepFamily))
 table(prevdf_Family$Family)
 
+class_counts_Family <- sort(table(na.omit(prevdf_Family$Family)), decreasing = TRUE)
+length(class_counts_Family) 
+Family_chunks <- split(class_counts_Family, ceiling(seq_along(class_counts_Family) / 9)) # facet(~??)で分割したい数を指定
+
+
+plot_list_Family <- list() 
+for (i in seq_along(Family_chunks)) {
+    subset_df <- subset(prevdf_Family, Family %in% names(Family_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Family)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Family") + ylab("Prevalence") +
+        facet_wrap(~Family) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.position = "none")
+    
+    plot_list_Family[[i]] <- p
+}
+
+### Legendのみのオブジェクト
+plot_list_Family_legend <- list() 
+for (i in seq_along(Family_chunks)) {
+    subset_df <- subset(prevdf_Family, Family %in% names(Family_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- cowplot::get_legend(
+        ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Family)) +
+            geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+            geom_point(size = 1.5, alpha = 0.8) +
+            scale_x_log10() +
+            xlab("Total Abundance in Family") + ylab("Prevalence") +
+            facet_wrap(~Family) +
+            theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+                  axis.text = element_text(size = 12, face = "bold", color = "black"),
+                  strip.text = element_text(size = 14, face = "italic", color = "black"),
+                  panel.grid.minor = element_blank()))
+    
+    plot_list_Family_legend[[i]] <- p
+}
 
 
 ## Genus -------------------------------------
 
-keepGenus = table(prevdf$Genus)[(table(prevdf$Genus) > 5)]
+keepGenus = table(prevdf$Genus)[(table(prevdf$Genus) > 5)] 
 prevdf_Genus = subset(prevdf, Genus %in% names(keepGenus))
 table(prevdf_Genus$Genus)
 
+class_counts_Genus <- sort(table(na.omit(prevdf_Genus$Genus)), decreasing = TRUE)
+length(class_counts_Genus) 
+Genus_chunks <- split(class_counts_Genus, ceiling(seq_along(class_counts_Genus) / 9)) # facet(~??)で分割したい数を指定
+
+plot_list_Genus <- list() 
+for (i in seq_along(Genus_chunks)) {
+    subset_df <- subset(prevdf_Genus, Genus %in% names(Genus_chunks[[i]]))
+    
+    if (nrow(subset_df) == 0) next
+    
+    p <- ggplot(subset_df, aes(TotalAbundance, Prevalence, color = Genus)) +
+        geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
+        geom_point(size = 1.5, alpha = 0.8) +
+        scale_x_log10() +
+        xlab("Total Abundance in Genus") + ylab("Prevalence") +
+        facet_wrap(~Genus) +
+        theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+              axis.text = element_text(size = 12, face = "bold", color = "black"),
+              strip.text = element_text(size = 14, face = "italic", color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.position = "none")
+    
+    plot_list_Genus[[i]] <- p
+}
 
 
 
-save(prevdf1_prevelence_plot_Bac,
-     file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/prevdf1_prevelence_plot_Bac.RData")
+## Save_PrevalenceFilteringPlots ------------------
+
+
+save(prevdf_phylum_prevelence_plot,Phylum_legend_only,
+     plot_list_Class, plot_list_Class_legend,
+     plot_list_Order, plot_list_Order_legend,
+     plot_list_Family, plot_list_Family_legend, 
+     plot_list_Genus,
+     file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Plot/Prevelence_inTaxa.RData")
 
 
 dev.off()
+rm(list = ls())
+
 
 
 

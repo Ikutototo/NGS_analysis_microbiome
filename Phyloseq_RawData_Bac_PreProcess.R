@@ -2,6 +2,7 @@
 
 ## Gitで管理しているなら、Pullして、最新版をローカルにアップデートしてから始めること!!
 
+ls()
 rm(list = ls())
 
 setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
@@ -11,10 +12,11 @@ library(ggplot2)
 library(cowplot)
 
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Plot/Prevelence_inTaxa.RData")
-ls()
+
 
 # Prevalence filtering ----------------------
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Plot/Prevelence_inTaxa.RData")
 
 ## Sample(Bac1~9)において、各ASVsが出現した(>0)Sample数(存在頻度)を出力
 ## taxa_are_rows → ASVsが行が列かどうかを確認
@@ -312,24 +314,6 @@ rm(list = ls())
 
 
 # Agglomerate closely related taxa ----------
-
-rank_names(PhyseqData)
-
-ps1 = prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
-ps1
-
-
-ps2 = subset_taxa(ps1, Phylum %in% names(keepPhyla))
-ps2
-
-
-# ps2は、フィルタリングされてきたphyseqObjects
-ID <- rank_names(PhyseqData)
-for (i in ID) {
-    print(length(get_taxa_unique(ps2, taxonomic.rank = i)))
-}
-
-ps3 = tax_glom(ps2, taxrank = "Genus")
 
 
 # Abundance value transformation ------------
@@ -738,82 +722,6 @@ ggsave(filename = "Relative_abundance_Genus_SampleName.png", plot = last_plot(),
 # Selects Top 50 
 top50_taxa <- names(sort(taxa_sums(PhyseqData), decreasing = TRUE)[1:50])
 prune_taxa(top_taxa, PhyseqData)
-
-
-
-## Transform sample counts -------------------
-
-PhyseqData_RA <- transform_sample_counts(PhyseqData, function(x) 100* x / sum(x))
-PhyseqData_log10 <- transform_sample_counts(PhyseqData, log)
-
-
-
-# Plot_Relative_Abundunce -------------------
-
-# Family Level 
-
-## Gathering dps
-ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
-    scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Family > 1%) \n") +
-    ggtitle("Relative abundance")
-
-ggsave(filename = "Relative_abundance_Family.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
-
-## In Sample.Name
-ggplot(PhyseqData_Family, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
-    scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Family > 1%) \n") +
-    ggtitle("Relative abundance")
-
-ggsave(filename = "Relative_abundance_Family_SampleName.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
-
-
-# Genus Level 
-
-## Gathering dps
-ggplot(PhyseqData_Genus, aes(x = dps, y = Abundance, fill = Genus)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
-    scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Genus > 1%) \n") +
-    ggtitle("Relative abundance")
-
-ggsave(filename = "Relative_abundance_Genus.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
-
-## In Sample.Name
-ggplot(PhyseqData_Genus, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
-    scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Genus > 1%) \n") +
-    ggtitle("Relative abundance")
-
-ggsave(filename = "Relative_abundance_Genus_SampleName.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
 
 
 
@@ -1942,5 +1850,23 @@ ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) + geom_point(size=6
 
 
 
+
+
+
+
+# Other -------------------------------------
+
+rank_names(PhyseqData)
+ps1 = prune_taxa((prev0 > prevalenceThreshold), PhyseqData)
+ps2 = subset_taxa(ps1, Phylum %in% names(keepPhyla))
+
+# ps2は、フィルタリングされてきたphyseqObjects
+ID <- rank_names(PhyseqData)
+for (i in ID) {
+    print(length(get_taxa_unique(ps2, taxonomic.rank = i)))
+}
+
+PhyseqData_RA <- transform_sample_counts(PhyseqData, function(x) 100* x / sum(x))
+PhyseqData_log10 <- transform_sample_counts(PhyseqData, log)
 
 

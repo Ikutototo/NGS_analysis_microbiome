@@ -52,11 +52,19 @@ Standardization is generally a Z-value calculation for data that fluctuates over
 これまで先行研究では、有機肥料が微生物数や叢を活性化させて、病害発生を抑制するなど報告されているが、ある特定の微生物(細菌・糸状菌)が密接に病害発生に関わっている可能性もあるが、それよりも複数の微生物同士が複雑に関わり合って、病原菌の感染が、競合的に劣り、病害発生に至っていない可能性もあるため\
 この複雑性を簡単に統計的にも科学的にも評価するのは、不可能に近いことを前提に置いた上で、微生物叢解析の論文などを読む方が良い。解析は、著者の主観も入ることもあり、批判的な視点で読むこと
 
-・β多様性(Tuley HSD検定)
+・α多様性(Sobs, Chao1, Shannon, and Faith’s PD)\
+→ ANOVA & Tukey’s HSD post hoc analyses
 
-・The Shannon index curves & Rarefaction curves (b) of the bacterial community
+・β多様性\
+The Shannon index curves & Rarefaction curves\
+beta diversity as represented by Hellinger transformed OTU relative abundances and weighted UniFrac distances\
+→ Tukey’s HSD post hoc analyses\
 
 Differences in fungal and prokaryotic community composition were tested through permutational multivariate analysis of variance (PERMANOVA) with the ‘adonis2’ function on Bray-Curtis distances in the R package vegan \[45\]
+
+・ASVs数に基づく、群集組成の評価
+
+・
 :::
 
 ::: callout-note
@@ -65,8 +73,6 @@ Differences in fungal and prokaryotic community composition were tested through 
 ・PCoA → 調査したSample数(土壌サンプル(eDNA))が多い時には、非常に有効だが、サンプル数が少ない場合は、解析の前提が成立しないこともあるので注意
 
 ・NMDS(ANOSIM\[vegan\]で有意差検定
-
-・Differences in fungal and prokaryotic community composition were tested through permutational multivariate analysis of variance (PERMANOVA) with the ‘adonis2’ function on Bray-Curtis distances in the R package vegan
 :::
 
 ::: callout-note
@@ -164,6 +170,14 @@ Differences in fungal and prokaryotic community composition were tested through 
 Differentially abundant taxa resulting from fungicide application were identi ed by comparing fungicide treated plots to control plots through an analysis of the composition of microbiomes (ANCOM v 2.1)\
 **→ 処理区に必要なサンプル数が5つ以上**\
 【Analysis of composition of microbiomes: a novel method for studying microbial composition】
+:::
+
+::: callout-note
+## The core bacterial microbiome of banana (Musa spp.)
+
+The main and interactive effects of compartment and soil/genotype on the composition of bacterial communities (i.e. beta diversity as represented by Hellinger transformed OTU relative abundances and weighted UniFrac distances) were assessed using Permutational Multivariate Analy- sis of Variance (PERMANOVA) \[41\] as implemented in vegan \[42\].
+
+Defining ‘candidate core’ bacterial taxa For each level of a significant factor (i.e. soil or genotype), we selected can- didate-core OTUs on the basis that they were in ≥ 50% of replicates within one or more compartments, at a mean relative abundance of ≥ 0.5% where present.
 :::
 
 # Chunk Options & SetDirectory
@@ -264,6 +278,7 @@ ggdraw(Phylum_legend_only)
 ```
 
 ### Class
+
 ```{r}
 #| label: Plots_Prevalence_Filtering_Class
 #| eval: true
@@ -282,6 +297,7 @@ for (i in seq_along(plot_list_Class)) {
 ```
 
 ### Order
+
 ```{r}
 #| label: Plots_Prevalence_Filtering_Order
 #| eval: true
@@ -300,6 +316,7 @@ for (i in seq_along(plot_list_Order)) {
 ```
 
 ### Family
+
 ```{r}
 #| label: Plots_Prevalence_Filtering_Family
 #| eval: true
@@ -317,8 +334,8 @@ for (i in seq_along(plot_list_Family)) {
 
 ```
 
-
 ### Genus
+
 ```{r}
 #| label: Plots_Prevalence_Filtering_Genus
 #| eval: true
@@ -550,6 +567,7 @@ rm(list = ls())
 ```
 
 ## Filtering Methods:
+
 ### ColorPallete:
 
 ```{r}
@@ -595,9 +613,10 @@ colors_v3 <- c(colors, "#9999FF", "#FF99CC", "#66FFFF")
 
 ```
 
-
 ### Relative Abundunce:
+
 #### Phylum Level
+
 ```{r}
 #| label: Phylum Level
 #| eval: true
@@ -672,6 +691,7 @@ ggsave(filename = "Relative_abundance_Phylum_SampleName.png", plot = last_plot()
 ```
 
 #### Class Level
+
 ```{r}
 #| label: Class Level
 #| eval: true
@@ -745,6 +765,7 @@ ggsave(filename = "Relative_abundance_Class_SampleName.png", plot = last_plot(),
 ```
 
 #### Order Level
+
 ```{r}
 #| label: Order Level
 #| eval: true
@@ -816,6 +837,7 @@ ggsave(filename = "Relative_abundance_Order_SampleName.png", plot = last_plot(),
 ```
 
 #### Family Level
+
 ```{r}
 #| label: Family Level
 #| eval: true
@@ -887,6 +909,7 @@ ggsave(filename = "Relative_abundance_Family_SampleName.png", plot = last_plot()
 ```
 
 #### Genus Level
+
 ```{r}
 #| label: Genus Level
 #| eval: true
@@ -960,59 +983,6 @@ ggsave(filename = "Relative_abundance_Genus_SampleName.png", plot = last_plot(),
 
 
 ```
-
-
-```{r}
-#| label: Phylum Level
-#| eval: true
-#| Include: false
-#| out-width: 90%
-#| fig-align: center
-
-### Family Level  -----------------------------
-# FamilyレベルでASVsを統合処理
-PhyseqData_Family <- PhyseqData  |> 
-    tax_glom(taxrank = "Family") %>%                        # agglomerate at phylum level
-    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
-    psmelt()  |>                                            # Melt to long format
-    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
-    arrange(desc(Family))
-
-unique(psmelt(PhyseqData)$Family)
-length(unique(psmelt(PhyseqData)$Family))
-
-# 相対存在量を小さい順に並び替え
-Ordered_Family <- PhyseqData_Family  |> 
-    group_by(Family)  |> 
-    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
-    arrange(total_abundance)  |> 
-    pull(Family)
-PhyseqData_Family$Family <- factor(PhyseqData_Family$Family, levels = Ordered_Family)
-
-
-ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
-    scale_y_continuous(labels = percent) +
-    xlab("Days post Fungicide") +
-    ylab("Relative Abundance (Family > 1%) \n") +
-    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
-          axis.text = element_text(size = 10, face = "bold", color = "black"),
-          panel.grid.minor = element_blank(),
-          legend.text = element_text(size = 10, color = "black"),
-          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
-          legend.background = element_rect(fill = "gray90"),
-          legend.key = element_rect(fill = "white", color = NA))
-
-ggsave(filename = "Relative_abundance_Family.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
-
-```
-
-
 
 ::: callout-warning
 ## Abundance value transformation

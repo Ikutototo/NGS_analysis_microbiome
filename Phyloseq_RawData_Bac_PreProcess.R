@@ -313,21 +313,27 @@ rm(list = ls())
 
 
 
-# Agglomerate closely related taxa ----------
+# Abundance value Counts ------------
 
+## 有意な差が認められた分類群の存在量を個別で可視化する
 
-# Abundance value transformation ------------
+## 全Sampleの内、Countsされた数でFiltering
+meltphyseq = psmelt(prune_taxa((prev0 > 3), PhyseqData)) 
 
-meltphyseq = psmelt(ps3)
+colnames(meltphyseq)
+class(meltphyseq)
+length(meltphyseq |> dplyr::filter(Order == "Pseudomonadales"))
 
-meltphyseq_v1 <- meltphyseq |> filter(Phylum == "Pseudomonadota")
+meltphyseq |> dplyr::filter(Order == "Pseudomonadales") |> 
+    ggplot(mapping = aes(x = dps, y = Abundance)) +
+    geom_boxplot() + 
+    geom_point(aes(color = Sample.Name), size = 3, alpha = 0.8) +  
+    ylab("Pseudomonadales") + 
+    theme_minimal()  
 
-# write.csv(meltphyseq_v1, 
-#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/meltphyseq.csv")
 
 orders <- unique(meltphyseq$Order)
 plot_list <- list()
-
 for (order in orders) {
     filt <- meltphyseq |> filter(Order == order)
     
@@ -355,8 +361,6 @@ plot_bar(ps_Pseudomonadota, fill = "Genus")
 
 # prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
 # ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
-# write.csv(ExportCSVData, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData.csv",
-#           row.names = TRUE)
 
 # Remove taxa not seen more than 3 times in at least 20% of the samples. This protects against an OTU with small mean & trivially large C.V.
 # filter_taxa(PhyseqData, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
@@ -371,7 +375,6 @@ plot_bar(ps_Pseudomonadota, fill = "Genus")
 
 # Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
 # physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
-
 
 
 # FilteringMethods --------------------------
@@ -744,7 +747,61 @@ psmelt(PhyseqData) |>
 
 # Richness Index ----------------------------
 
-plot_richness(PhyseqData, measures = "Observed")
+library(phyloseq)
+library(dplyr)
+library(ggplot2)
+
+## ASVs Tableの生成と出力
+otu_mat <- t(as(otu_table(PhyseqData), Class = "matrix"))
+tax_mat <- as(tax_table(PhyseqData), Class = "matrix")
+otu_table <- cbind(otu_mat, tax_mat)
+write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/otu_table.csv",
+          row.names = TRUE)
+
+## シングルトン有無の確認
+sum(as(otu_table(PhyseqData), Class = "matrix") == 1)
+
+
+tail(phyloseq::taxa_sums(PhyseqData))
+
+
+plot_richness(PhyseqData, nrow = 2)
+
+
+
+## Estimate_Richness -------------------------
+
+### 多様性指数は任意で 
+alpha_df <- estimate_richness(PhyseqData, measures = c("Observed", "Shannon"))
+alpha_df$SampleID <- rownames(alpha_df)
+
+rownames(data.frame(sample_data(PhyseqData)))
+rownames(alpha_df)
+
+meta <- data.frame(sample_data(PhyseqData))
+alpha_df <- cbind(meta, alpha_df) 
+
+
+# Step 3: 処理区ごとに平均と標準誤差を計算
+group_summary <- alpha_df  |> 
+    group_by(dps)  |> 
+    summarise(
+        Observed_mean = mean(Observed, na.rm = TRUE),
+        Observed_se   = sd(Observed, na.rm = TRUE) / sqrt(n()),
+        Shannon_mean  = mean(Shannon, na.rm = TRUE),
+        Shannon_se    = sd(Shannon, na.rm = TRUE) / sqrt(n()))
+
+# Step 4: ggplotで処理区ごとに描画（例：Shannon index）
+ggplot(group_summary, aes(x = SoilType, y = Shannon_mean)) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    geom_errorbar(aes(ymin = Shannon_mean - Shannon_se,
+                      ymax = Shannon_mean + Shannon_se),
+                  width = 0.2) +
+    ylab("Shannon Diversity Index") +
+    xlab("Soil Type") +
+    theme_minimal()
+
+
 
 
 # Rarefaction Curve -------------------------

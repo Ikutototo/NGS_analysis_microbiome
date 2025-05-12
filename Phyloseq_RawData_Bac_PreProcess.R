@@ -747,11 +747,13 @@ psmelt(PhyseqData) |>
 
 
 # Richness Index ----------------------------
-
 library(phyloseq)
 library(dplyr)
 library(ggplot2)
+library(ggpubr)
+library(tidyr)
 
+## Exports_OTU_Table -------------------------
 ## ASVs Tableの生成と出力
 otu_mat <- t(as(otu_table(PhyseqData), Class = "matrix"))
 tax_mat <- as(tax_table(PhyseqData), Class = "matrix")
@@ -761,37 +763,164 @@ write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/
 
 ## シングルトン有無の確認
 sum(as(otu_table(PhyseqData), Class = "matrix") == 1)
-
-
 tail(phyloseq::taxa_sums(PhyseqData))
+plot_richness(PhyseqData, nrow = 3)
 
+ggsave(filename = "RichnessIndex.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-plot_richness(PhyseqData, nrow = 2)
-
-
-library(ggpubr)
-
+## Estimate_Richness -------------------------
+### 多様性指数は任意で 
+### シングルトンが無い場合、警告文が出るが、無視
+alpha_df <- estimate_richness(PhyseqData)
 colnames(alpha_df)
 
+rownames(data.frame(sample_data(PhyseqData)))
+rownames(alpha_df)
+
+### 行数が同じであることを確認した上で、cbind()
+alpha_df <- cbind(data.frame(sample_data(PhyseqData)), alpha_df) 
+
+
+### NonChimera --------------------------------
+library(tibble)
+
+rownames(track)
+colnames(track)
+class(track)
+
+track <- rownames_to_column(as.data.frame(track), var = "Sample.Name")
+
+track |> 
+    ggplot(aes(x = Sample.Name, y = nonchim,
+               fill = Sample.Name)) +
+    scale_fill_manual(values = c("#1b9e77", "#d95f02", "#7570b3",
+                                 "#e7298a", "#66a61e", "#e6ab02",
+                                 "#a6761d", "#666666", "#8dd3c7")) + 
+    geom_bar(stat = "identity", width = 0.7) +
+    ylab("Nonchim") +
+    xlab("Sample.Name") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+ggsave(filename = "nonchim.png", plot = last_plot(), 
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+### Observed ASVs -----------------------------
+
+
+
+
+### Observed ASVs
+alpha_df |> 
+    ggplot(aes(x = Sample.Name, y = Observed,
+               fill = Sample.Name)) +
+    scale_fill_manual(values = c("#1b9e77", "#d95f02", "#7570b3",
+                                 "#e7298a", "#66a61e", "#e6ab02",
+                                 "#a6761d", "#666666", "#8dd3c7")) + 
+    geom_bar(stat = "identity", width = 0.7) +
+    ylab("Observed ASVs") +
+    xlab("Sample.Name") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+
+ggsave(filename = "ObservedASVs.png", plot = last_plot(), 
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+### 一旦断念 (250511)
+# alpha_df  |> 
+#     group_by(dps)  |> 
+#     summarise(
+#         Observed_mean = mean(Observed, na.rm = TRUE),
+#         Observed_se = sd(Observed, na.rm = TRUE) / sqrt(n()),
+#         Shannon_mean = mean(Shannon, na.rm = TRUE),
+#         Shannon_se = sd(Shannon, na.rm = TRUE) / sqrt(n()),
+#         Chao1_mean = mean(Chao1, na.rm = TRUE) ,
+#         Chao1_se = sd(Chao1, na.rm = TRUE) / sqrt(n()),
+#         ACE_mean = mean(ACE, na.rm = TRUE) ,
+#         ACE_se = sd(ACE, na.rm = TRUE) / sqrt(n()),
+#         se.ACE_mean = mean(se.ACE, na.rm = TRUE) ,
+#         se.ACE_se = sd(se.ACE, na.rm = TRUE) / sqrt(n()),
+#         Simpson_mean = mean(Simpson, na.rm = TRUE) ,
+#         Simpson_se = sd(Simpson, na.rm = TRUE) / sqrt(n()),
+#         InvSimpson_mean = mean(InvSimpson, na.rm = TRUE) ,
+#         InvSimpson_se = sd(InvSimpson, na.rm = TRUE) / sqrt(n()),
+#         Fisher_mean = mean(Fisher, na.rm = TRUE) ,
+#         Fisher_se = sd(Fisher, na.rm = TRUE) / sqrt(n())) |> 
+#     pivot_longer(
+#         cols = c(Observed_mean, Shannon_mean, Chao1_mean, ACE_mean, se.ACE_mean),
+#         names_to = "index",
+#         values_to = "value"
+#     )
+#     ggplot(aes(x = dps, y = Shannon_mean)) +
+#     geom_bar(stat = "identity", fill = "steelblue", width = 0.3) +
+#     geom_errorbar(aes(ymin = Shannon_mean - Shannon_se,
+#                       ymax = Shannon_mean + Shannon_se),
+#                   width = 0.1) +
+#     ylab("Shannon Diversity Index") +
+#     xlab("dps") +
+#     theme_minimal()
 
 ## Compare_RichnessIndex ---------------------
+
+### Checking Normality&EquallyDispersed -------
+library(car)
+
+#### QQ Plots
+qqnorm(alpha_df$Shannon[alpha_df$dps == 0])
+qqline(alpha_df$Shannon[alpha_df$dps == 0])
+
+#### 正規性の確認
+by(alpha_df$Shannon, alpha_df$dps, shapiro.test)
+
+#### 等分散性の確認
+bartlett.test(Shannon ~ dps, data = alpha_df)
+leveneTest(Shannon ~ dps, data = alpha_df)
+
+#### → Sample数が3つと小さいため、NonParametricで実施する
+
+### RichnessIndex StatisticalProcessing -------
+
 compare_means(Shannon ~ dps, data = alpha_df,
+              method = "wilcox.test", label = "p.format")
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
               method = "wilcox.test", label = "p.format")
 
 compare_means(Shannon ~ dps, data = alpha_df,
               method = "t.test", label = "p.format")
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
+              method = "t.test", label = "p.format")
 
 compare_means(Shannon ~ dps, data = alpha_df,
+              method = "anova", label = "p.format")
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
               method = "anova", label = "p.format")
 
 compare_means(Shannon ~ dps, data = alpha_df,
               method = "kruskal.test", label = "p.format")
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
+              method = "kruskal.test", label = "p.format")
+# kruskal.test(Shannon ~ dps, data = alpha_df)
+
 
 
 
 ## Plots_Richness ----------------------------
-
-
 ### Compare_dps -------------------------------
 
 # alpha_df |> 
@@ -809,7 +938,6 @@ compare_means(Shannon ~ dps, data = alpha_df,
 ## 多様性指数の統計処理 
 stat.test_dps <- compare_means(Shannon ~ dps, data = alpha_df, 
                                method = "wilcox.test", label = "p.format")
-
 ## y.position(p値表示の高さ)
 stat.test_dps$y.position <- seq(
     from = max(alpha_df$Shannon, na.rm = TRUE) * 1.05,
@@ -896,45 +1024,6 @@ ggsave(filename = "Richness_Shannon_Fungicide.use.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-
-
-
-## Estimate_Richness -------------------------
-
-### 多様性指数は任意で 
-alpha_df <- estimate_richness(PhyseqData, measures = c("Observed", "Shannon"))
-alpha_df$SampleID <- rownames(alpha_df)
-
-rownames(data.frame(sample_data(PhyseqData)))
-rownames(alpha_df)
-
-meta <- data.frame(sample_data(PhyseqData))
-alpha_df <- cbind(meta, alpha_df) 
-
-
-
-# Step 3: 処理区ごとに平均と標準誤差を計算
-group_summary <- alpha_df  |> 
-    group_by(dps)  |> 
-    summarise(
-        Observed_mean = mean(Observed, na.rm = TRUE),
-        Observed_se   = sd(Observed, na.rm = TRUE) / sqrt(n()),
-        Shannon_mean  = mean(Shannon, na.rm = TRUE),
-        Shannon_se    = sd(Shannon, na.rm = TRUE) / sqrt(n()))
-
-
-ggplot(group_summary, aes(x = dps, y = Shannon_mean)) +
-    geom_bar(stat = "identity", fill = "steelblue") +
-    geom_errorbar(aes(ymin = Shannon_mean - Shannon_se,
-                      ymax = Shannon_mean + Shannon_se),
-                  width = 0.2) +
-    ylab("Shannon Diversity Index") +
-    xlab("dps") +
-    theme_minimal()
-
-
-
-
 # Rarefaction Curve -------------------------
 
 rare <- lapply(rarecurve(as(otu_table(PhyseqData), "matrix"),
@@ -956,8 +1045,8 @@ ggplot(rare_df, aes(x = raw_read, y = ASV, color = sample)) +
 # Nonmetric Multidimensional Scaling --------
 
 set.seed(1234)
-ps_bray <- ordinate(PhyseqData, "NMDS", "bray")
-plot_ordination(PhyseqData, ps_bray, color = "dps", shape = "dps") +
+ordinate(PhyseqData, "NMDS", "bray") |> 
+plot_ordination(physeq = PhyseqData, color = "dps", shape = "dps") +
     stat_ellipse(geom = "polygon", alpha = 0.1, aes(fill=dps)) +
     geom_point(size = 2) +
     scale_color_startrek() +
@@ -966,74 +1055,14 @@ plot_ordination(PhyseqData, ps_bray, color = "dps", shape = "dps") +
     ylab("Axis 2") + 
     ggtitle("NMDS")
 
-
-
-# ColorPallete ------------------------------
-
-colors <- c(
-    "#1b9e77",  # 緑系（濃）
-    "#d95f02",  # オレンジ系
-    "#7570b3",  # 青紫系
-    "#e7298a",  # ピンク系（明）
-    "#66a61e",  # 黄緑系
-    "#e6ab02",  # 黄土色
-    "#a6761d",  # 茶色
-    "#666666",  # グレー（濃）
-    
-    "#8dd3c7",  # 薄い青緑
-    "#ffffb3",  # 薄い黄色
-    "#bebada",  # 薄い紫
-    "#fb8072",  # 薄い赤
-    "#80b1d3",  # 青
-    "#fdb462",  # オレンジ
-    "#b3de69",  # 明るい緑
-    "#fccde5",  # 薄いピンク
-    
-    "#bc80bd",  # 紫
-    "#ccebc5",  # ミントグリーン
-    "#ffed6f",  # レモンイエロー
-    "#7fc97f",  # 落ち着いた緑
-    "#fdc086",  # 柔らかいオレンジ
-    "#ffff99",  # 明るい黄
-    "#386cb0",  # 紺青
-    "#f0027f",  # ビビッドピンク
-    
-    "#bf5b17",  # 赤茶
-    "#6a3d9a",  # 濃い紫
-    "#cab2d6",  # 淡いラベンダー
-    "#ff7f00",  # 鮮やかなオレンジ
-    "#b2df8a",  # 明るい緑
-    "#a6cee3",  # 明るい水色
-    "#fb9a99",  # ソフトな赤
-    "#1f78b4",  # 落ち着いた青
-    "#33a02c",  # 深緑
-    "#b15928"   # 焦げ茶
-)
-
-
-color_v2 <- c(
-    "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", 
-    "#BCBD22", "#17BECF", "#F0E442", "#9E14D2", "#7D8B33", "#B5F56D", "#3F51B5", "#D32F2F", 
-    "#0288D1", "#7B1FA2", "#388E3C", "#FBC02D", "#0288D1", "#8BC34A", "#FF5722", "#8E24AA", 
-    "#FFEB3B", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", "#FF9800", "#E91E63", "#9E9E9E", 
-    "#CDDC39"
-)
-
-
-
-
 # MicrobiotaProcessMethods ------------------
 ## alpha diversity analysis ------------------
 
 library("MicrobiotaProcess")
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/mpdata.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 
-mpdata <- PhyseqData |> 
-    as.MPSE()
-
-# save(mpdata,
-#      file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/mpdata.RData")
-
+mpdata <- 
+    PhyseqData |> as.MPSE()
 
 # 以下は同じ意味
 ## x <- x |> log()
@@ -1634,56 +1663,38 @@ f.mahattan
 
 
 # DESeq2 ------------------------------------
-
-
 ## PhyseqObjectsDESeq2 -----------------------
 
 rm(list = ls())
 library("phyloseq")
 library("DESeq2")
 
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/PhyloseqData.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 
 PhyseqData <- transform_sample_counts(PhyseqData, function(x) 100*(x / sum(x)))
 PhyseqData <- filter_taxa(PhyseqData, function(x) mean(x) > 0.1, TRUE)
-
-write.csv(t(PhyseqData@otu_table@.Data),
-           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData@otu_table@.Data.csv")
 
 
 dps_dds = phyloseq_to_deseq2(PhyseqData, ~ dps)
 dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
 res = results(dps_dds, cooksCutoff = FALSE)
 alpha = 0.01
-# write.csv(res, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/res.csv")
+
 sigtab = res[which(res$padj < alpha), ] 
 sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
 head(sigtab)
 
 
-
 ### Taxa Level in Family Level --------------------------------
-rm(list = ls())
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/PhyloseqData.RData")
-
-
-
 #### Filtering ---------------------
+
+rm(list = ls())
+
 rank_names(PhyseqData)
 PhyseqData_Family <- PhyseqData  |> 
-    tax_glom(taxrank = "Family") |>                      　       # agglomerate at phylum level
-    filter_taxa(function(x) mean(x) > 100, TRUE) |>               # Read数が約100000であり、0.1%のReads数 
-    subset_taxa(Kingdom == "Bacteria")                            # Archaeaを除去
-
-
-# PhyseqData_Family.csv <- read.csv("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/PhyseqData_Family.csv",
-#             header = TRUE, sep = ",", fileEncoding = "UTF-8")
-
-# ASVsTable.csv <- read.csv("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ASVsTable.csv",
-#             header = TRUE, sep = ",", fileEncoding = "UTF-8")
-
-# write.csv(cbind(t(PhyseqData_Family@otu_table@.Data), PhyseqData_Family@tax_table@.Data),
-#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/PhyseqData_Family.csv")
+    subset_taxa(Kingdom == "Bacteria") |> # Archaeaを除去
+    tax_glom(taxrank = "Family") |>       # agglomerate at phylum level
+    filter_taxa(function(x) mean(x) > 100, TRUE) |> # Read数が約100000であり、0.1%のReads数 
 
 #### DESeq2 conversion & results table ----------------
 
@@ -1816,11 +1827,6 @@ p1.1 <- p1 +
 p1.1
 
 
-
-
-
-
-
 ##### Example -----------------------------------
 # The path of tree file.
 trfile <- system.file("extdata", "tree.nwk", package="ggtreeExtra")
@@ -1928,14 +1934,6 @@ a <- taxa.tree@data
 
 
 ### Taxa Level in Order Level -----------------
-
-
-
-
-
-
-
-
 
 
 

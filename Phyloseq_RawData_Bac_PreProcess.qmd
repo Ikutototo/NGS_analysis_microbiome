@@ -22,6 +22,8 @@ title: "Phyloseq_RawData_Bacteria_PreProcess"
 [ggtreeExtra HP](https://bioconductor.org/packages/release/bioc/vignettes/ggtreeExtra/inst/doc/ggtreeExtra.html)
 
 [Metagenomic biomarker discovery and explanation](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2011-12-6-r60)
+
+[SILVA138.2 SSUrRNA database](https://www.arb-silva.de/)
 :::
 
 # NGS Analysis Flow
@@ -178,6 +180,22 @@ Differentially abundant taxa resulting from fungicide application were identi ed
 The main and interactive effects of compartment and soil/genotype on the composition of bacterial communities (i.e. beta diversity as represented by Hellinger transformed OTU relative abundances and weighted UniFrac distances) were assessed using Permutational Multivariate Analy- sis of Variance (PERMANOVA) \[41\] as implemented in vegan \[42\].
 
 Defining ‘candidate core’ bacterial taxa For each level of a significant factor (i.e. soil or genotype), we selected can- didate-core OTUs on the basis that they were in ≥ 50% of replicates within one or more compartments, at a mean relative abundance of ≥ 0.5% where present.
+:::
+
+::: callout-note
+## Role of the beneficial phyllosphere microbiome in the defense against red clover anthracnose caused by Colletotrichum americae-borealis
+
+Statistical analysis
+
+Use Shapiro-Wilk test and Anderson-Darling test to check for significant deviations from normal distribution.
+
+The disease index data were plotted as a histogram with an overlaid normal distribution curve using ggplot2 package in R.
+
+The Kruskal–Wallis test was used to assess significant differences in alpha diversity among groups. PERMANOVA was used to examine the significant differences in microbial communities (i. e., beta diversity) across the sample groups.
+
+The Wilcoxon test was used to determine the statistical significance of differences in relative abundance among taxonomic groups.
+
+Duncan’s new multiple range test was used for significance analysis of the data, and the results are expressed as the means ±standard deviations.
 :::
 
 # Chunk Options & SetDirectory
@@ -1005,8 +1023,14 @@ Additional arguments are passed on to the function specified in the second argum
 #| eval: false
 #| Include: false
 
+rm(list = ls())
 
+library(phyloseq)
+library(dplyr)
+library(ggplot2)
 library(ggpubr)
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 
 
 ### Compare_RichnessIndex ---------------------

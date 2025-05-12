@@ -1663,11 +1663,12 @@ f.mahattan
 
 
 # DESeq2 ------------------------------------
-## PhyseqObjectsDESeq2 -----------------------
+## PhyseqObjects to DESeq2 -----------------------
 
 rm(list = ls())
 library("phyloseq")
 library("DESeq2")
+library("dplyr")
 
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 
@@ -1685,75 +1686,120 @@ sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigta
 head(sigtab)
 
 
-### Taxa Level in Family Level --------------------------------
-#### Filtering ---------------------
-
-rm(list = ls())
+### Family Level Filtering ------------------------------
 
 rank_names(PhyseqData)
+
 PhyseqData_Family <- PhyseqData  |> 
-    subset_taxa(Kingdom == "Bacteria") |> # Archaeaを除去
-    tax_glom(taxrank = "Family") |>       # agglomerate at phylum level
-    filter_taxa(function(x) mean(x) > 100, TRUE) |> # Read数が約100000であり、0.1%のReads数 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
 
-#### DESeq2 conversion & results table ----------------
+#### DESeq2 conversion & results table ---------
 
-dps_dds = phyloseq_to_deseq2(PhyseqData_Family, ~ `Fungicide.use`)            # dps列(散布後日数)で比較
+dps_dds = phyloseq_to_deseq2(PhyseqData_Family, ~ `Fungicide.use`) 
 dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
 
+res <- results(dps_dds, cooksCutoff = FALSE)
+res <- cbind(as(res, "data.frame"), as(tax_table(PhyseqData)[rownames(res), ], "matrix"))
+write.csv(cbind(as(res, "data.frame"), as(tax_table(PhyseqData)[rownames(res), ], "matrix")),
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/res.csv")
 
-
-res = results(dps_dds, cooksCutoff = FALSE)
-# write.csv(res, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/res.csv")
- 
 
 alpha = 0.01
+
+#### 0.01よりもpadjが小さいASVsをFiltering
 sigtab = res[which(res$padj < alpha), ] 
+
+#### Taxa Tableもcbind
 sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
 head(sigtab)
 dim(sigtab)
-write.csv(sigtab, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/sigtab.csv")
+write.csv(sigtab, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab.csv")
 
 #### Results_ggplot ----------------------------
-library("ggplot2")
-theme_set(theme_bw())
+library(ggplot2)
+library(scales)
 
 
-# Phylum order
+##### sigtab_Plots ------------------------------
+#### Phylum order
 x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
 x = sort(x, TRUE)
 sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
-# Genus order
+
+#### Genus order
 x = tapply(sigtab$log2FoldChange, sigtab$Genus, function(x) max(x))
 x = sort(x, TRUE)
 sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
 
-# ggplot(sigtab, aes(x=Family, y=log2FoldChange, color=Phylum)) + geom_point(size=abs(sigtab$log2FoldChange)) + 
-#   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
-
-
-
+sigtab$log10value <- -log10(sigtab$padj)
 sigtab$Sign <- ifelse(sigtab$log2FoldChange < 0, "Negative", "Positive")
 sigtab$ASV <- rownames(sigtab)
-custom_colors_21 <- c(
-    "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00","#FFFF33", "#A65628", "#F781BF", "#999999", "#66C2A5",
-    "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F","#E5C494", "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3","#E7298A"
-)
 
+colors_21 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
+               "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB",
+               "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", 
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3","#E7298A")
+
+unique(sigtab$Family)
 
 ggplot(sigtab, aes(x = Family, y = abs(sigtab$log2FoldChange), color = Phylum, shape = Sign)) +
-    geom_point(size = abs(sigtab$log2FoldChange)) +
+    geom_point() +
     geom_text(aes(label = ASV), vjust = -1, size = 3) + 
-    scale_color_manual(values = custom_colors_21) +
+    scale_color_manual(values = colors_21) +
     theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
-    scale_shape_manual(values = c("Positive" = 16, "Negative" = 17)) +  # 丸と三角など
+    scale_shape_manual(values = c("Positive" = 16, "Negative" = 17)) +  
     ylab("log2FoldChange") +
     xlab("Family") +
-    theme(legend.position = "right")
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none")
+
+ggsave(filename = "Relative_abundance_Phylum_SampleName.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+##### res_Plots ---------------------------------
+
+res$log10value <- -log10(res$padj)
+res$Sign <- ifelse(res$log2FoldChange < 0, "Negative", "Positive")
+res$ASV <- rownames(res)
+
+unique(res$Family)
+colors_40 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
+               "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD", "#2CA02C", "#FFBB78", "#98DF8A",
+               "#AEC7E8", "#FF9896", "#C5B0D5", "#F7B6D2", "#C7E9C0", "#9ECAE1", "#FDD0A2", "#DADAEB")
 
 
 
-#### cladogram ---------------------------------
+ggplot(res, aes(x = Family, y = abs(log10value), color = Family, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.5) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) +
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Positive" = 16, "Negative" = 17)) +  
+    ylab("-log10 Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 10,color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none")
+
+ggsave(filename = "DESeq2_Family_res_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+## cladogram ---------------------------------
 library(phyloseq)
 library(DESeq2)
 library(ggtree)
@@ -1825,219 +1871,6 @@ p1.1 <- p1 +
     )
 
 p1.1
-
-
-##### Example -----------------------------------
-# The path of tree file.
-trfile <- system.file("extdata", "tree.nwk", package="ggtreeExtra")
-# The path of file to plot tip point.
-tippoint1 <- system.file("extdata", "tree_tippoint_bar.csv", package="ggtreeExtra")
-# The path of first layer outside of tree.
-ring1 <- system.file("extdata", "first_ring_discrete.csv", package="ggtreeExtra")
-# The path of second layer outside of tree.
-ring2 <- system.file("extdata", "second_ring_continuous.csv", package="ggtreeExtra")
-
-# The tree file was imported using read.tree. If you have other tree format files, you can use corresponding functions from treeio package to read it.
-tree <- read.tree(trfile)
-
-# This dataset will to be plotted point and bar.
-dat1 <- read.csv(tippoint1)
-colnames(dat1)
-dat2 <- read.csv(ring1)
-colnames(dat2)
-dat3 <- read.csv(ring2)
-colnames(dat3)
-
-
-p <- ggtree(tree, layout="fan", open.angle=10, size=0.5)
-
-p2 <- p + 
-    geom_fruit(
-        data=dat1,
-        geom=geom_star,
-        mapping=aes(y=ID, fill=Location, size=Length, starshape=Group),
-        position="identity",
-        starstroke=0.2
-    ) + 
-    scale_size_continuous(
-        range=c(1, 3), # the range of size.
-        guide=guide_legend(
-            keywidth=0.5, 
-            keyheight=0.5,
-            override.aes=list(starshape=15),
-            order=2
-        )
-    ) +
-    scale_fill_manual(
-        values=c("#F8766D", "#C49A00", "#53B400", "#00C094", "#00B6EB", "#A58AFF", "#FB61D7"),
-        guide="none" 
-    ) + 
-    scale_starshape_manual(
-        values=c(1, 15),
-        guide=guide_legend(
-            keywidth=0.5,
-            keyheight=0.5,
-            order=1
-        )
-    )
-p2
-
-
-
-
-library(ggtree)
-library(ggtreeExtra)
-library(ggplot2)
-library(MicrobiotaProcess)
-library(tidytree)
-library(ggstar)
-library(forcats)
-data(mouse.time.mpse)
-mouse.time.mpse
-mouse.time.mpse %>% print(width=150)
-
-mouse.time.mpse %<>% mp_rrarefy()
-
-mouse.time.mpse %<>% 
-    mp_cal_rarecurve(
-        .abundance = RareAbundance,
-        chunks = 400
-    )
-
-mouse.time.mpse %<>%
-    mp_cal_abundance( # for each samples
-        .abundance = RareAbundance
-    ) %>%
-    mp_cal_abundance( # for each groups 
-        .abundance=RareAbundance,
-        .group=time
-    )
-
-mouse.time.mpse %<>%
-    mp_diff_analysis(
-        .abundance = RelRareAbundanceBySample,
-        .group = time,
-        first.test.alpha = 0.01
-    )
-
-
-# The result is stored to the taxatree or otutree slot, you can use mp_extract_tree to extract the specific slot.
-taxa.tree <- mouse.time.mpse %>% 
-    mp_extract_tree(type="taxatree")
-taxa.tree
-
-
-taxa.tree %>% select(label, nodeClass, LDAupper, LDAmean, LDAlower, Sign_time, pvalue, fdr) %>% dplyr::filter(!is.na(fdr))
-colnames(taxa.tree@data$nodeClass)
-
-a <- taxa.tree@data
-
-
-### Taxa Level in Order Level -----------------
-
-
-
-## Example -----------------------------------
-
-
-filepath = system.file("extdata", "study_1457_split_library_seqs_and_mapping.zip", package="phyloseq")
-kostic = microbio_me_qiime(filepath)
-head(sample_data(kostic)$DIAGNOSIS, 25)
-
-colnames(sample_data(kostic))
-
-# csvで保存
-write.csv(kostic@otu_table@.Data,
-          file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/kostic@otu_table@.Data.csv")
-
-
-
-kostic = subset_samples(kostic, DIAGNOSIS != "None")
-kostic
-
-library("DESeq2")
-packageVersion("DESeq2")
-
-
-diagdds = phyloseq_to_deseq2(kostic, ~ DIAGNOSIS)
-diagdds = DESeq(diagdds, test="Wald", fitType="parametric", sfType = "poscounts")
-
-res = results(diagdds, cooksCutoff = FALSE)
-alpha = 0.01
-sigtab = res[which(res$padj < alpha), ]
-sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(kostic)[rownames(sigtab), ], "matrix"))
-head(sigtab)
-
-
-dim(sigtab)
-
-
-library("ggplot2")
-theme_set(theme_bw())
-scale_fill_discrete <- function(palname = "Set1", ...) {
-    scale_fill_brewer(palette = palname, ...)
-}
-# Phylum order
-x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
-x = sort(x, TRUE)
-sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
-# Genus order
-x = tapply(sigtab$log2FoldChange, sigtab$Genus, function(x) max(x))
-x = sort(x, TRUE)
-sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
-ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) + geom_point(size=6) + 
-  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Other -------------------------------------

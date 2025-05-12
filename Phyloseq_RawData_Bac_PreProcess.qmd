@@ -1621,10 +1621,39 @@ mpdata %<>%
 
 # DESeq2
 
+::: callout-note
+## Reference
+
 [Analyzing RNA-seq data with DESeq2](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)\
 [RNA-seq workflow: gene-level exploratory analysis and differential expression](https://master.bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html)\
 [DESeq2 with phyloseq](https://joey711.github.io/phyloseq-extensions/DESeq2.html)
+:::
 
+::: callout-important
+## Analyzing RNA-seq data with DESeq2
+
+It is important to provide count matrices as input for DESeq2’s statistical model (Love, Huber, and Anders 2014) to hold, as only the count values allow assessing the measurement precision correctly.
+
+The DESeq2 model internally corrects for library size, so transformed or normalized values such as counts scaled by library size should not be used as input.
+
+A DESeqDataSet object must have an associated design formula. The design formula expresses the variables which will be used in modeling.
+
+The formula should be a tilde (\~) followed by the variables with plus signs between them (it will be coerced into an formula if it is not already).
+
+The design can be changed later, however then all differential analysis steps should be repeated, as the design formula is used to estimate the dispersions and to estimate the log2 fold changes of the model.
+
+## **Pre-filtering**
+
+While it is not necessary to pre-filter low count genes before running the DESeq2 functions, there are two reasons which make pre-filtering useful:
+
+by removing rows in which there are very few reads, we reduce the memory size of the dds data object, and we increase the speed of count modeling within DESeq2.
+
+It can also improve visualizations, as features with no information for differential expression are not plotted in dispersion plots or MA-plots.
+
+Here we perform pre-filtering to keep only rows that have a count of at **least 10** for a minimal number of samples
+:::
+
+::: callout-important
 ## Preparing quantification input to DESeq2
 
 The values in the matrix should be counts or estimated counts of sequencing reads/fragments\
@@ -1639,6 +1668,7 @@ The object class used by the DESeq2 package to store the read counts and the int
 -   From a SummarizedExperiment object
 
 Alternatively, the function `DESeqDataSetFromMatrix` can be used if you already have a matrix of read counts prepared from another source
+:::
 
 ## PhyseqObjectsDESeq2
 

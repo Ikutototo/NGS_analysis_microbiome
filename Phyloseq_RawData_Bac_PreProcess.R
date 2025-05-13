@@ -319,46 +319,71 @@ rm(list = ls())
 ## 有意な差が認められた分類群の存在量を個別で可視化する
 
 ## 全Sampleの内、Countsされた数でFiltering
-meltphyseq = psmelt(prune_taxa((prev0 > 3), PhyseqData)) 
-
-colnames(meltphyseq)
-class(meltphyseq)
-length(meltphyseq |> dplyr::filter(Order == "Pseudomonadales"))
-
-meltphyseq |> dplyr::filter(Order == "Pseudomonadales") |> 
-    ggplot(mapping = aes(x = dps, y = Abundance)) +
-    geom_boxplot() + 
-    geom_point(aes(color = Sample.Name), size = 3, alpha = 0.8) +  
-    ylab("Pseudomonadales") + 
-    theme_minimal()  
 
 
-orders <- unique(meltphyseq$Order)
-plot_list <- list()
-for (order in orders) {
-    filt <- meltphyseq |> filter(Order == order)
-    
-    p <- ggplot(data = filt, mapping = aes(x = dps, y = Abundance)) +
-        # バイオリンプロットの設定
-        geom_violin(aes(fill = dps), alpha = 0.3, position = position_nudge(x = 0.1)) +  # バイオリンを少しずらす
-        # ポイントの設定
-        geom_point(aes(color = Sample.Name), size = 3, alpha = 0.8) +  # ポイントの色をSample.Nameに基づいて変更
-        ylab(paste(order)) +  # y軸ラベルにOrder名を使用
-        scale_y_log10() +  # y軸をログスケール
-        scale_x_continuous(breaks = c(0, 3, 7)) +  # x軸のラベル設定
-        theme_minimal()  # グラフのテーマを設定
-    
-    # プロットをリストに格納
-    plot_list[[order]] <- p
-}
 
-# 最初のプロットを表示
-print(plot_list[[1]])
 
-length(get_taxa_unique(ps2, taxonomic.rank = "Phylum"))
+## ASV205： -----------------------------------
 
-ps_Pseudomonadota <- subset_taxa(ps3, Phylum == "Pseudomonadota")
-plot_bar(ps_Pseudomonadota, fill = "Genus") 
+colnames(psmelt(PhyseqData))
+class(psmelt(PhyseqData))
+length(psmelt(PhyseqData) |> dplyr::filter(Genus == "Bryobacter"))
+
+PhyseqData |> 
+    psmelt() |>
+    dplyr::filter(Genus == "Bryobacter") |> 
+    write.csv(file = "~/Documents/RStudio/Novogene/250503/export_csv/psmelt_Bryobacter.csv")
+
+
+prune_taxa("ASV205", PhyseqData) |> 
+    psmelt() |> 
+    group_by(dps) |> 
+    summarise(
+        mean_abund = mean(Abundance),
+        sd_abund = sd(Abundance)) |> 
+ggplot(aes(x = dps, y = mean_abund)) +
+    geom_bar(stat = "identity", width = 0.8, fill = "steelblue") +
+    geom_errorbar(aes(ymin = mean_abund - sd_abund, ymax = mean_abund + sd_abund), width = 0.1) +
+    ylab("ASV 205 Bryobacter Abundance") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 16, face = "bold", color = "black"),
+          strip.text = element_text(size = 14, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank())
+
+ggsave(filename = "ASV205_Bryobacter_dps_Abundance_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+dev.off()
+
+
+
+## ASV75： ------------------------------------
+
+prune_taxa("ASV75", PhyseqData) |> 
+    psmelt() |> 
+    group_by(dps) |> 
+    summarise(
+        mean_abund = mean(Abundance),
+        sd_abund = sd(Abundance)) |> 
+    ggplot(aes(x = dps, y = mean_abund)) +
+    geom_bar(stat = "identity", width = 0.8, fill = "steelblue") +
+    geom_errorbar(aes(ymin = pmax(mean_abund - sd_abund, 0),
+                      ymax = mean_abund + sd_abund), width = 0.1) +
+    ylab("ASV 75 Thiobacillus Abundance") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 16, face = "bold", color = "black"),
+          strip.text = element_text(size = 14, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank())
+
+ggsave(filename = "ASV75_Thiobacillus_dps_Abundance_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+### Others --------------------------------
+
 
 # prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
 # ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
@@ -376,6 +401,7 @@ plot_bar(ps_Pseudomonadota, fill = "Genus")
 
 # Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
 # physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
+
 
 
 # FilteringMethods --------------------------
@@ -1666,38 +1692,25 @@ f.mahattan
 ## PhyseqObjects to DESeq2 -----------------------
 
 rm(list = ls())
-library("phyloseq")
-library("DESeq2")
-library("dplyr")
+library(phyloseq)
+library(DESeq2)
+library(dplyr)
 
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 
-PhyseqData <- transform_sample_counts(PhyseqData, function(x) 100*(x / sum(x)))
-PhyseqData <- filter_taxa(PhyseqData, function(x) mean(x) > 0.1, TRUE)
-
-
-dps_dds = phyloseq_to_deseq2(PhyseqData, ~ dps)
-dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
-res = results(dps_dds, cooksCutoff = FALSE)
-alpha = 0.01
-
-sigtab = res[which(res$padj < alpha), ] 
-sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
-head(sigtab)
-
-
 ### Family Level Filtering ------------------------------
 
-rank_names(PhyseqData)
+ rank_names(PhyseqData)
 
 PhyseqData_Family <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> 
     filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
 
-#### DESeq2 conversion & results table ---------
+#### DESeq2 Fungicide.use ---------
 
 dps_dds = phyloseq_to_deseq2(PhyseqData_Family, ~ `Fungicide.use`) 
-dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
+## DESeq()のParameterは、最適な引数を設定すること
+dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric") 
 
 res <- results(dps_dds, cooksCutoff = FALSE)
 res <- cbind(as(res, "data.frame"), as(tax_table(PhyseqData)[rownames(res), ], "matrix"))
@@ -1719,7 +1732,6 @@ write.csv(sigtab, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab.
 #### Results_ggplot ----------------------------
 library(ggplot2)
 library(scales)
-
 
 ##### sigtab_Plots ------------------------------
 #### Phylum order
@@ -1766,18 +1778,146 @@ ggsave(filename = "Relative_abundance_Phylum_SampleName.png", plot = last_plot()
 ##### res_Plots ---------------------------------
 
 res$log10value <- -log10(res$padj)
-res$Sign <- ifelse(res$log2FoldChange < 0, "Negative", "Positive")
+res$Sign <- ifelse(res$log2FoldChange < 0, "Depleted", "Enriched")
 res$ASV <- rownames(res)
 
+colnames(res)
 unique(res$Family)
+unique(res$Genus)
+
+### Family数に応じて、Colorを設定
 colors_40 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
                "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
                "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
                "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD", "#2CA02C", "#FFBB78", "#98DF8A",
                "#AEC7E8", "#FF9896", "#C5B0D5", "#F7B6D2", "#C7E9C0", "#9ECAE1", "#FDD0A2", "#DADAEB")
 
+colors_29 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
+               "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD")
+
+### log10 Value Plots in Family Colors
+ggplot(res, aes(x = Family, y = abs(log10value), color = Family, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.5) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) +
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("-log10 Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 10,color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.8, y=0.9)) +
+    labs(shape = "Enriched Circle or Depleted Triangle") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 4),
+                             title.theme = element_text(face = "bold", size = 16))
+    )
 
 
+ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+#### Legend Plots
+library(ggpubr)
+library(cowplot)
+
+ggdraw(
+    get_legend(
+        ggplot(res, aes(x = Family, y = abs(log10value), color = Family)) +
+            scale_color_manual(values = colors_40) +
+            theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+            ylab("-log10 Value") +
+            xlab("Family") +
+            theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+                  axis.text = element_text(size = 10,color = "black"),
+                  strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+                  panel.grid.minor = element_blank(),
+                  legend.position = "top") +
+            labs(shape = "Enriched Circle or Depleted Triangle"), return_all = TRUE))
+
+cowplot::ggdraw(
+    cowplot::get_legend(
+        ggplot(res, aes(x = Family, y = abs(log10value), color = Family)) +
+            geom_point(aes(size = 4, alpha = 0.6)) +
+            scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +
+            labs(shape = "Enriched Circle or Depleted Triangle") +
+            theme_minimal() +
+            theme(legend.position = "top")
+        )
+    )
+
+
+### log10 Value Plots in Genus Colors
+ggplot(res, aes(x = Family, y = abs(log10value), color = Genus, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.5) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) +
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("-log10 Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 10,color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.7, y=0.9)) +
+    labs(shape = "Enriched Circle or Depleted Triangle") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 4),
+                             title.theme = element_text(face = "bold", size = 16))
+    )
+
+ggsave(filename = "DESeq2_Family_log10Value_ColorGenus_res_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+### log2FoldChange in Genus Colors
+ggplot(res, aes(x = Family, y = abs(log2FoldChange), color = Genus, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.8) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) + ## 有意水準の設定
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log2FoldChange Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 20, face = "bold", color = "black"),
+          axis.text = element_text(size = 11,color = "black"),
+          strip.text = element_text(size = 11, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.7, y=0.9)) +
+    labs(shape = "Enriched Circle or Depleted Triangle") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 4),
+                             title.theme = element_text(face = "bold", size = 16))
+    )
+
+ggsave(filename = "DESeq2_Family_log2Value_ColorGenus_res_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+### log2FoldChange in Family Colors
 ggplot(res, aes(x = Family, y = abs(log10value), color = Family, shape = Sign)) +
     geom_point(mapping = aes(size = 4, alpha = 0.6)) +
     geom_text(aes(label = ASV), vjust = -1, size = 2.5) + 

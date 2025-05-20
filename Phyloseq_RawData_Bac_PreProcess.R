@@ -60,8 +60,11 @@ prevalenceThreshold
 ## Phylum ------------------------------------
 
 keepPhyla = table(prevdf$Phylum)[(table(na.omit(prevdf$Phylum)) > 5)] # 全Sample中、5つ以上でPrelvalenceと指定
-prevdf_phylum = subset(prevdf_phylum, Phylum %in% names(keepPhyla)) # names()は大事
+prevdf_phylum = subset(prevdf, Phylum %in% names(keepPhyla)) # names()は大事
 table(prevdf_phylum$Phylum)
+
+write.csv(x = prevdf_phylum,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/prevdf_Phylum.csv", row.names = TRUE)
 
 
 ### Prevalence Plots → Classでラベリングしています
@@ -70,13 +73,18 @@ table(prevdf_phylum$Phylum)
     geom_hline(yintercept = prevalenceThreshold, alpha = 0.7, linetype = 2, colour = "black") +
     geom_point(size = 1.5, alpha = 0.8) +
     scale_x_log10() +
-    xlab("Total Abundance in Phylum") + ylab("Prevalence") +
+    scale_y_continuous(breaks = seq(0, 9, by = 1)) +
+    xlab("Total Abundance in Phylum") + ylab("Sample Prevalence") +
     facet_wrap(~Phylum) +
     theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
-          axis.text = element_text(size = 12, face = "bold", color = "black"),
-          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          axis.text = element_text(size = 10, face = "bold", color = "black"),
+          strip.text = element_text(size = 8, face = "bold.italic", color = "black"),
           panel.grid.minor = element_blank(),
           legend.position = "none"))
+
+ggsave(filename = "prevdf_phylum_prevelence_plot.png", plot = last_plot(), 
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png/")
 
 Phylum_legend_only <- get_legend(
     ggplot(prevdf_phylum, aes(TotalAbundance, Prevalence, color = Class)) +
@@ -91,13 +99,21 @@ Phylum_legend_only <- get_legend(
               panel.grid.minor = element_blank()))
 
 ggdraw(Phylum_legend_only)
+ggsave(filename = "prevdf_phylum_prevelence_plot_legend_only.png", plot = last_plot(), 
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png/")
 
+dev.off()
 
 ## Class -------------------------------------
 
 keepClass = table(prevdf$Class)[(table(prevdf$Class) > 5)]
 prevdf_Class = subset(prevdf, Class %in% names(keepClass))
 table(prevdf_Class$Class)
+
+write.csv(x = prevdf_Class,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/prevdf_Class.csv", row.names = TRUE)
+
 
 
 class_counts_Class <- sort(table(na.omit(prevdf_Class$Class)), decreasing = TRUE)
@@ -158,6 +174,10 @@ grid::grid.draw(plot_list_Class_legend[[1]]) # ggdraw()にlistを渡さないこ
 keepOrder = table(prevdf$Order)[(table(prevdf$Order) > 5)]
 prevdf_Order = subset(prevdf, Order %in% names(keepOrder))
 table(prevdf_Order$Order)
+
+write.csv(x = prevdf_Order,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/prevdf_Order.csv", row.names = TRUE)
+
 
 
 class_counts_Order <- sort(table(na.omit(prevdf_Order$Order)), decreasing = TRUE)
@@ -314,11 +334,19 @@ rm(list = ls())
 
 
 
-# Abundance value Counts ------------
+# Abundance value Counts & refseq ------------
 
-## 有意な差が認められた分類群の存在量を個別で可視化する
-
+## 有意な差が認められた分類群の存在量を個別で可視化
+## ASVsの配列情報を取得
 ## 全Sampleの内、Countsされた数でFiltering
+
+
+## Genus == Bryobacter → Filtering → Sequenceを取得 → Data.frame化
+write.csv(data.frame(Sequence = refseq(PhyseqData)[taxa_names(subset_taxa(PhyseqData, Genus == "Bryobacter"))],
+                     ASV_ID = taxa_names(subset_taxa(PhyseqData, Genus == "Bryobacter")),
+                     stringsAsFactors = FALSE),
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/Bryobacter_sequences.csv", row.names = FALSE)
+
 
 
 
@@ -1696,38 +1724,313 @@ library(phyloseq)
 library(DESeq2)
 library(dplyr)
 
+
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
+
 
 ### Family Level Filtering ------------------------------
 
- rank_names(PhyseqData)
+rank_names(PhyseqData)
 
 PhyseqData_Family <- PhyseqData  |> 
-    subset_taxa(Kingdom == "Bacteria") |> 
+    subset_taxa(Kingdom == "Bacteria") |> # Kingdomを"Bacteria"でSubset
     filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
+
 
 #### DESeq2 Fungicide.use ---------
 
-dps_dds = phyloseq_to_deseq2(PhyseqData_Family, ~ `Fungicide.use`) 
+dps_dds_Family = phyloseq_to_deseq2(PhyseqData_Family, ~ `Fungicide.use`) 
 ## DESeq()のParameterは、最適な引数を設定すること
-dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric") 
+dps_dds_Family = DESeq(dps_dds_Family, test="Wald", fitType="parametric") 
 
-res <- results(dps_dds, cooksCutoff = FALSE)
-res <- cbind(as(res, "data.frame"), as(tax_table(PhyseqData)[rownames(res), ], "matrix"))
-write.csv(cbind(as(res, "data.frame"), as(tax_table(PhyseqData)[rownames(res), ], "matrix")),
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/res.csv")
+res_Family <- results(dps_dds_Family, cooksCutoff = FALSE)
+res_Family <- cbind(as(res_Family, "data.frame"),
+                    as(tax_table(PhyseqData)[rownames(res_Family), ], "matrix"))
+
+write.csv(cbind(as(res_Family, "data.frame"), as(tax_table(PhyseqData)[rownames(res_Family), ], "matrix")),
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/res_Family.csv")
 
 
 alpha = 0.01
 
 #### 0.01よりもpadjが小さいASVsをFiltering
-sigtab = res[which(res$padj < alpha), ] 
+sigtab_Family = res_Family[which(res_Family$padj < alpha), ] 
+
+dim(sigtab_Family)
+
+
+#### Results_ggplot ----------------------------
+library(ggplot2)
+library(scales)
+
+##### sigtab_Plots ------------------------------
+
+#### Phylum order
+x = tapply(sigtab_Family$log2FoldChange, sigtab_Family$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+sigtab_Family$Phylum = factor(as.character(sigtab_Family$Phylum), levels=names(x))
+
+#### Genus order
+x = tapply(sigtab_Family$log2FoldChange, sigtab_Family$Genus, function(x) max(x))
+x = sort(x, TRUE)
+sigtab_Family$Genus = factor(as.character(sigtab_Family$Genus), levels=names(x))
+
+
+
+#### padjをlog10にする
+sigtab_Family$log10value <- -log10(sigtab_Family$padj)
+
+#### log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
+sigtab_Family$Sign <- ifelse(sigtab_Family$log2FoldChange < 0, "Enriched", "Depleted")
+
+#### 行名をASV列として、追加
+sigtab_Family$ASV <- rownames(sigtab_Family)
+
+sigtab_Family <- sigtab_Family |> 
+    select(ASV, log10value, log2FoldChange, Sign, everything())
+
+#### sigtab_Familyのcsv保存
+write.csv(sigtab_Family, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab_Family.csv",
+          row.names = FALSE)
+
+unique(sigtab_Family$Family)
+unique(sigtab_Family$Phylum)
+
+# unique(sigtab_Family$Family)に基づいて、colorパレットを設定
+colors_21 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
+               "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB",
+               "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", 
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3","#E7298A")
+
+
+
+ggplot(sigtab_Family, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log2FoldChange") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.65, y=0.9)) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+    ))
+
+
+ggsave(filename = "DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+##### res_Plots ---------------------------------
+
+res_Family$log10value <- -log10(res_Family$padj)
+res_Family$Sign <- ifelse(res_Family$log2FoldChange < 0, "Enriched", "Depleted")
+res_Family$ASV <- rownames(res_Family)
+
+colnames(res_Family)
+unique(res_Family$Family)
+unique(res_Family$Genus)
+
+### Family数に応じて、Colorを設定
+colors_40 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
+               "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD", "#2CA02C", "#FFBB78", "#98DF8A",
+               "#AEC7E8", "#FF9896", "#C5B0D5", "#F7B6D2", "#C7E9C0", "#9ECAE1", "#FDD0A2", "#DADAEB")
+
+colors_29 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
+               "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD")
+
+### log10 Value Plots in Family Colors
+ggplot(res_Family, aes(x = Family, y = abs(log10value), color = Family, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.5) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) +
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("-log10 Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 10,color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.8, y=0.9)) +
+    labs(shape = "Enriched Circle or Depleted Triangle") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 4),
+                             title.theme = element_text(face = "bold", size = 16))
+    )
+
+
+ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+#### Legend Plots
+library(ggpubr)
+library(cowplot)
+
+ggdraw(
+    get_legend(
+        ggplot(res_Family, aes(x = Family, y = abs(log10value), color = Family)) +
+            scale_color_manual(values = colors_40) +
+            theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+            ylab("-log10 Value") +
+            xlab("Family") +
+            theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+                  axis.text = element_text(size = 10,color = "black"),
+                  strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+                  panel.grid.minor = element_blank(),
+                  legend.position = "top") +
+            labs(shape = "Enriched Circle or Depleted Triangle"), return_all = TRUE))
+
+cowplot::ggdraw(
+    cowplot::get_legend(
+        ggplot(res_Family, aes(x = Family, y = abs(log10value), color = Family)) +
+            geom_point(aes(size = 4, alpha = 0.6)) +
+            scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +
+            labs(shape = "Enriched Circle or Depleted Triangle") +
+            theme_minimal() +
+            theme(legend.position = "top")
+        )
+    )
+
+
+### log10 Value Plots in Genus Colors
+ggplot(res_Family, aes(x = Family, y = abs(log10value), color = Genus, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.5) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) +
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("-log10 Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 10,color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.7, y=0.9)) +
+    labs(shape = "Enriched Circle or Depleted Triangle") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 4),
+                             title.theme = element_text(face = "bold", size = 16))
+    )
+
+ggsave(filename = "DESeq2_Family_log10Value_ColorGenus_res_Family_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+### log2FoldChange in Genus Colors
+ggplot(res_Family, aes(x = Family, y = abs(log2FoldChange), color = Genus, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.8) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) + ## 有意水準の設定
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log2FoldChange Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 20, face = "bold", color = "black"),
+          axis.text = element_text(size = 11,color = "black"),
+          strip.text = element_text(size = 11, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.7, y=0.9)) +
+    labs(shape = "Enriched Circle or Depleted Triangle") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 4),
+                             title.theme = element_text(face = "bold", size = 16))
+    )
+
+ggsave(filename = "DESeq2_Family_log2Value_ColorGenus_res_Family_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+### log2FoldChange in Family Colors
+ggplot(res_Family, aes(x = Family, y = abs(log10value), color = Family, shape = Sign)) +
+    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 2.5) + 
+    geom_hline(mapping = aes(yintercept = -log10(0.05)), linetype = 2) +
+    scale_color_manual(values = colors_40) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    scale_shape_manual(values = c("Positive" = 16, "Negative" = 17)) +  
+    ylab("-log10 Value") +
+    xlab("Family") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 10,color = "black"),
+          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none")
+
+ggsave(filename = "DESeq2_Family_res_Family_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+
+
+### Genus Level Filtering ---------------------
+
+PhyseqData_Genus <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
+
+#### DESeq2 Fungicide.use ---------
+
+dps_dds_Genus = phyloseq_to_deseq2(PhyseqData_Genus, ~ `Fungicide.use`) 
+## DESeq()のParameterは、最適な引数を設定すること
+dps_dds_Genus = DESeq(dps_dds_Genus, test="Wald", fitType="parametric") 
+
+
+res_Genus <- results(dps_dds_Genus, cooksCutoff = FALSE)
+res_Genus <- cbind(as(res_Genus, "data.frame"),
+                   as(tax_table(PhyseqData)[rownames(res_Genus), ], "matrix"))
+
+write.csv(cbind(as(res_Genus, "data.frame"), as(tax_table(PhyseqData)[rownames(res_Genus), ], "matrix")),
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/res_Genus.csv")
+
+
+alpha = 0.01
+
+#### 0.01よりもpadjが小さいASVsをFiltering
+sigtab_Genus = res_Genus[which(res_Genus$padj < alpha), ] 
 
 #### Taxa Tableもcbind
-sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
-head(sigtab)
-dim(sigtab)
-write.csv(sigtab, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab.csv")
+sigtab_Genus = cbind(as(sigtab_Genus, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab_Genus), ], "matrix"))
+head(sigtab_Genus)
+dim(sigtab_Genus)
+write.csv(sigtab_Genus, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab_Genus.csv")
+
 
 #### Results_ggplot ----------------------------
 library(ggplot2)
@@ -1853,8 +2156,8 @@ cowplot::ggdraw(
             labs(shape = "Enriched Circle or Depleted Triangle") +
             theme_minimal() +
             theme(legend.position = "top")
-        )
     )
+)
 
 
 ### log10 Value Plots in Genus Colors
@@ -1936,7 +2239,6 @@ ggplot(res, aes(x = Family, y = abs(log10value), color = Family, shape = Sign)) 
 ggsave(filename = "DESeq2_Family_res_Plots.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
 
 
 ## cladogram ---------------------------------

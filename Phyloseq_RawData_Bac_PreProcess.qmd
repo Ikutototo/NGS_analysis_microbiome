@@ -104,7 +104,63 @@ BioManeger::ANCOMBS package
 ・LEfSe解析 → 比較したい処理区で、最低でも5つ以上はサンプルが必要なので、注意!!!
 :::
 
+::: callout-note
+## ASVsの特徴や性質調査
+
+LPSN：[List of Prokaryotic names with Standing in Nomenclature](https://lpsn.dsmz.de/text/introduction)
+
+→ 有意に変動したASVsの科・属などを検索し、そのASVsに関する論文を辿る
+
+GTDB：[Genome Taxonomy Database](https://gtdb.ecogenomic.org/)
+
+→ ???
+
+IMG：[Integrated Microbial Genomes](https://img.jgi.doe.gov/)
+
+→ ???
+
+PubMed：???\[\] AND ??で検索する
+
+Bryobacter\[Title/Abstract\] AND 16S
+:::
+
 # Paper Information
+
+::: callout-note
+## [SILVA Release 138.2](https://www.arb-silva.de/documentation/release-1382/)
+
+The SILVA taxonomy release 138.2 is a maintenance release, with no additional sequences added to the ARB databases since the previous release 138.1. In this update we have focused on Prokaryotes.
+
+Key changes:
+
+-   bug fixes
+
+-   extensive adoption of the LPSN taxonomy at the genus and phylum level, synchronised by April 2023
+
+-   ongoing adoption of the LPSN taxonomy for families, orders and classes
+
+-   a standard six-rank taxonomy has been established for all prokaryotic sequences
+
+-   **the term "uncultured" to refer to clades with unassigned taxonomy has been discontinued**
+
+-   **widespread adoption of the term "Incertae Sedis" to refer to unassigned taxa**
+
+For each SILVA release, the taxonomy has to be frozen at a certain point in time.
+
+The reason for freezing the taxonomy for this release so early is that the migration of SILVA from the Max Planck Institute for Marine Microbiology to the DSMZ caused more problems than originally expected.
+
+The release was therefore delayed considerably. However, these problems also had a positive outcome: by adding the de.NBI cloud as a computing instance, the redundancy for the SILVA website jobs (alignment, TestProbe, TestPrime, export) could be increased.
+
+The release required not only changes to the SILVA pipeline software, but also adjustments to the DSMZ infrastructure.
+
+Normally, our long-time taxonomic curator would have used the delay for further updates.
+
+Unfortunately, he has been unavailable since last summer due to a career change. After two years of migration and major changes in the team, we are now on the verge of filling all positions and returning to normal operations.
+
+Although the situation has not been easy for us or our users, we are very optimistic about the future now that SILVA is permanently funded.
+
+We plan to release one full release and one taxonomic update per year, starting next year at the latest. We would like to thank you for your loyalty over the years and take this as an incentive to continue to provide the high quality you have come to expect.
+:::
 
 ::: callout-note
 ## Waste not, want not: revisiting the analysis that called into question the practice of rarefaction

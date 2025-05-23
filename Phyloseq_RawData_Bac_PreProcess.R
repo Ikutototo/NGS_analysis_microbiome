@@ -1807,7 +1807,9 @@ colors_v2 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
 
 
 
-#### Plots in Phylum Colors --------------------
+#### Plots sigtab  --------------------
+
+#### in Phylum Colors & log2FoldChange
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
     geom_point(mapping = aes(size = 6, alpha = 0.6)) +
     geom_text(aes(label = ASV), vjust = -1, size = 3) + 
@@ -1830,7 +1832,6 @@ ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phy
                              title.theme = element_text(face = "bold", size = 20)
     ))
 
-
 ggsave(filename = "DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
        width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
@@ -1838,13 +1839,21 @@ ggsave(filename = "DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png", p
 
 
 
-res_Family$log10value <- -log10(res_Family$padj)
-res_Family$Sign <- ifelse(res_Family$log2FoldChange < 0, "Enriched", "Depleted")
-res_Family$ASV <- rownames(res_Family)
 
-colnames(res_Family)
-unique(res_Family$Family)
-unique(res_Family$Genus)
+#### Plots res ---------------------------------
+
+
+
+
+
+FungicideUse_res$log10value <- -log10(FungicideUse_res$padj)
+FungicideUse_res$Sign <- ifelse(FungicideUse_res$log2FoldChange < 0, "Enriched", "Depleted")
+FungicideUse_res$ASV <- rownames(FungicideUse_res)
+
+
+colnames(FungicideUse_res)
+unique(FungicideUse_res$Family)
+unique(FungicideUse_res$Genus)
 
 ### Family数に応じて、Colorを設定
 colors_40 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",

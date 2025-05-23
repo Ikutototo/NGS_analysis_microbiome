@@ -1717,105 +1717,108 @@ f.mahattan
 
 
 # DESeq2 ------------------------------------
-## PhyseqObjects to DESeq2 -----------------------
-
-rm(list = ls())
-library(phyloseq)
-library(DESeq2)
-library(dplyr)
-
-
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
-
-
-### Family Level Filtering ------------------------------
+## No Taxa Filtering -------------------------
 
 rank_names(PhyseqData)
 
-PhyseqData_Family <- PhyseqData  |> 
+## Bacteriaのみに絞る
+PhyseqData_DESeq2 <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> # Kingdomを"Bacteria"でSubset
     filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
 
 
-#### DESeq2 Fungicide.use ---------
+### DESeq2 Fungicide.use ---------
 
-dps_dds_Family = phyloseq_to_deseq2(PhyseqData_Family, ~ `Fungicide.use`) 
-## DESeq()のParameterは、最適な引数を設定すること
-dps_dds_Family = DESeq(dps_dds_Family, test="Wald", fitType="parametric") 
+FungicideUse_dds = phyloseq_to_deseq2(PhyseqData_DESeq2, ~ `Fungicide.use`) 
 
-res_Family <- results(dps_dds_Family, cooksCutoff = FALSE)
-res_Family <- cbind(as(res_Family, "data.frame"),
-                    as(tax_table(PhyseqData)[rownames(res_Family), ], "matrix"))
+### DESeq()のParameterは、最適な引数を設定すること
+FungicideUse_dds = DESeq(FungicideUse_dds, test="Wald", fitType="parametric") 
 
-write.csv(cbind(as(res_Family, "data.frame"), as(tax_table(PhyseqData)[rownames(res_Family), ], "matrix")),
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/res_Family.csv")
+FungicideUse_res <- results(FungicideUse_dds, cooksCutoff = FALSE)
+FungicideUse_res <- cbind(as(FungicideUse_res, "data.frame"),
+                          as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix"))
 
 
-alpha = 0.01
-
-#### 0.01よりもpadjが小さいASVsをFiltering
-sigtab_Family = res_Family[which(res_Family$padj < alpha), ] 
-
-dim(sigtab_Family)
+write.csv(cbind(as(FungicideUse_res, "data.frame"),
+                as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix")),
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv")
 
 
-#### Results_ggplot ----------------------------
+### 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
+FungicideUse_sigtab = FungicideUse_res[which(FungicideUse_res$padj < 0.01), ] 
+
+dim(FungicideUse_sigtab)
+
+
+### Plots ------------------------------
+
 library(ggplot2)
 library(scales)
 
-##### sigtab_Plots ------------------------------
 
-#### Phylum order
-x = tapply(sigtab_Family$log2FoldChange, sigtab_Family$Phylum, function(x) max(x))
+### Phylum AscendingOrder Sort in log2FoldChange 
+x = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Phylum, function(x) max(x))
 x = sort(x, TRUE)
-sigtab_Family$Phylum = factor(as.character(sigtab_Family$Phylum), levels=names(x))
-
-#### Genus order
-x = tapply(sigtab_Family$log2FoldChange, sigtab_Family$Genus, function(x) max(x))
-x = sort(x, TRUE)
-sigtab_Family$Genus = factor(as.character(sigtab_Family$Genus), levels=names(x))
+FungicideUse_sigtab$Phylum = factor(as.character(FungicideUse_sigtab$Phylum), levels=names(x))
 
 
+### Genus AscendingOrder Sort in log2FoldChange 
+y = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Genus, function(x) max(x))
+y = sort(x, TRUE)
+FungicideUse_sigtab$Genus = factor(as.character(FungicideUse_sigtab$Genus), levels=names(y))
 
-#### padjをlog10にする
-sigtab_Family$log10value <- -log10(sigtab_Family$padj)
 
-#### log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
-sigtab_Family$Sign <- ifelse(sigtab_Family$log2FoldChange < 0, "Enriched", "Depleted")
 
-#### 行名をASV列として、追加
-sigtab_Family$ASV <- rownames(sigtab_Family)
+### padjをlog10へ
+FungicideUse_sigtab$log10value <- -log10(FungicideUse_sigtab$padj)
 
-sigtab_Family <- sigtab_Family |> 
+### log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
+FungicideUse_sigtab$Sign <- ifelse(FungicideUse_sigtab$log2FoldChange < 0, "Enriched", "Depleted")
+
+#### 行名をASV列として、追加し、順番を変更
+FungicideUse_sigtab$ASV <- rownames(FungicideUse_sigtab)
+FungicideUse_sigtab <- FungicideUse_sigtab |> 
     select(ASV, log10value, log2FoldChange, Sign, everything())
 
-#### sigtab_Familyのcsv保存
-write.csv(sigtab_Family, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab_Family.csv",
+
+
+### sigtabのcsv保存
+write.csv(FungicideUse_sigtab,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_sigtab_no_taxa_filtering.csv",
           row.names = FALSE)
 
-unique(sigtab_Family$Family)
-unique(sigtab_Family$Phylum)
-
-# unique(sigtab_Family$Family)に基づいて、colorパレットを設定
-colors_21 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
-               "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
-               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB",
-               "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", 
-               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3","#E7298A")
 
 
+### ColorPalleteの数を把握
+unique(FungicideUse_sigtab$Family)
+unique(FungicideUse_sigtab$Phylum)
 
-ggplot(sigtab_Family, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
-    geom_point(mapping = aes(size = 4, alpha = 0.6)) +
-    geom_text(aes(label = ASV), vjust = -1, size = 2) + 
+# unique(sigtab$Family)に基づいて、colorパレットを設定
+colors_21 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", 
+               "#F781BF", "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854",
+               "#FFD92F", "#E5C494", "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A")
+
+
+colors_v2 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", 
+               "#7F7F7F", "#BCBD22", "#17BECF", "#F0E442", "#9E14D2", "#7D8B33", "#B5F56D",
+               "#3F51B5", "#D32F2F", "#0288D1", "#7B1FA2", "#388E3C", "#FBC02D", "#0288D1",
+               "#8BC34A", "#FF5722", "#8E24AA", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", 
+               "#FF9800", "#E91E63", "#CDDC39")
+
+
+
+#### Plots in Phylum Colors --------------------
+ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
+    geom_point(mapping = aes(size = 6, alpha = 0.6)) +
+    geom_text(aes(label = ASV), vjust = -1, size = 3) + 
     scale_color_manual(values = colors_21) +
-    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
     scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
     ylab("log2FoldChange") +
     xlab("Family") +
-    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
-          axis.text = element_text(size = 12, face = "bold", color = "black"),
-          strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+    theme(axis.title = element_text(size = 20, colour = "#E91E63"),
+          axis.text = element_text(size = 18, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
           panel.grid.minor = element_blank(),
           legend.position = c(x=0.65, y=0.9)) +
     labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse") +
@@ -1829,11 +1832,11 @@ ggplot(sigtab_Family, aes(x = Family, y = abs(log2FoldChange), color = Phylum, s
 
 
 ggsave(filename = "DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
-       width = 2800, height = 2520, dpi = 300, units = "px",
+       width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-##### res_Plots ---------------------------------
+
 
 res_Family$log10value <- -log10(res_Family$padj)
 res_Family$Sign <- ifelse(res_Family$log2FoldChange < 0, "Enriched", "Depleted")

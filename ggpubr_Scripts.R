@@ -1,4 +1,3 @@
-
 # tidyplots ---------------------------------
 
 library(tidyplots)
@@ -67,7 +66,7 @@ head(sample, 50)
 ## Sample2 ----------------------------------
 
 library(ggpubr)
-
+alpha_df <- read.csv("~/Documents/RStudio/Novogene/250503/export_csv/alpha_df.csv")
 colnames(alpha_df)
 
 
@@ -87,8 +86,6 @@ compare_means(Shannon ~ dps, data = alpha_df,
 
 
 ### Plots_Richness ----------------------------
-
-
 #### Compare_dps -------------------------------
 
 # alpha_df |> 

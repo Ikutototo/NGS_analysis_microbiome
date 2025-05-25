@@ -8,18 +8,14 @@
 
 ls()
 rm(list = ls())
-dev.off()
-
 
 setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
-
-
-library(cowplot)
-library(ggplot2)
 library(phyloseq)
-
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
+
+dev.off()
+rm(list = ls())
 
 
 # Prevalence filtering ----------------------
@@ -1149,6 +1145,167 @@ ggplot(alpha_df, aes(x = Fungicide.use, y = Shannon)) +
 ggsave(filename = "Richness_Shannon_Fungicide.use.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+## Beta Diversity ----------------------------
+library(vegan)
+library(ggplot2)
+library(phyloseq)
+library(ape)         
+
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
+
+otu_table <- as.data.frame(otu_table(PhyseqData))
+rm(PhyseqData, track)
+
+
+### Vegan  ------------------------------------
+
+# Bray-Curtis距離行列
+bray_dist <- vegdist(otu_table, method = "bray")
+
+# 主座標分析
+pcoa_res <- cmdscale(bray_dist, eig = TRUE, k = 2)
+pcoa_df <- as.data.frame(pcoa_res$points) # DataFrame化
+colnames(pcoa_df) <- c("PCoA1", "PCoA2")
+
+# MetaDataとのMerge(Sample.Nameで結合)
+pcoa_df$Sample.Name <- rownames(pcoa_df)
+pcoa_df <- merge(pcoa_df, MetaData, by = "Sample.Name")
+
+# 固有値ベクトル算出    
+eig <- pcoa_res$eig
+eig <- eig[eig > 0]
+
+# 説明率の算出
+ExplainedVariance <- eig / sum(eig)
+ExplainedVariance <- round(ExplainedVariance * 100, 1)
+
+# PCoAPlots in Bray-Curtis
+ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = dps)) +
+    geom_point(size = 8, alpha = 0.7) +
+    geom_text(aes(label = Sample.Name), vjust = -1.3, size = 4) + 
+    labs(caption = "PCoA with Bray-Curtis") +
+    xlab(paste0("PCoA1 (", ExplainedVariance[1], "%)")) +
+    ylab(paste0("PCoA2 (", ExplainedVariance[2], "%)")) +
+    theme_minimal(base_size = 16) +
+    theme(
+        legend.position = "right",
+        legend.title = element_text(size = 25, face = "bold",  colour = "#E91E63"),
+        legend.text = element_text(size = 25),
+        axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 1),
+        axis.title.y = element_text(size = 25, colour = "#E91E63", hjust = 0.5),
+        axis.text = element_text(size = 30, face = "bold", color = "black"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
+    scale_color_brewer(palette = "Set1")
+
+
+# vegan::betadisper()による群内分散の検定  
+betadisper <- betadisper(bray_dist, group = pcoa_df$dps)
+permutest(betadisper, permutations = 999)
+
+# PERMANOVAによる有意差検定
+adonis2(bray_dist ~ dps, data = pcoa_df, permutations = 999)
+
+
+cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
+
+### Phyloseq & ape ----------------------------
+#### RareFaction Filtering ---------------------
+# ライブラリサイズを最小のサンプルに合わせて、RareFaction
+physeq_rarefaction <- rarefy_even_depth(PhyseqData, rngseed = 123, verbose = FALSE)
+unifrac_dist <- UniFrac(physeq_rarefaction, weighted = TRUE, normalized = TRUE, parallel = FALSE)
+pcoa_res <- ape::pcoa(unifrac_dist)
+
+pcoa_df <- as.data.frame(pcoa_res$vectors[, 1:2])
+pcoa_df$Sample.Name <- rownames(pcoa_df)
+pcoa_df <- merge(pcoa_df, MetaData, by = "Sample.Name")
+
+ggplot(pcoa_df, aes(x = Axis.1, y = Axis.2, color = dps)) +
+    geom_point(size = 9, alpha = 0.7) +
+    geom_text(aes(label = Sample.Name), vjust = -1.3, size = 6) + 
+    labs(x = paste0("PCoA1 (", round(pcoa_res$values$Relative_eig[1] * 100, 1), "%)"),
+         y = paste0("PCoA2 (", round(pcoa_res$values$Relative_eig[2] * 100, 1), "%)")) +
+    labs(caption = "PCoA with weighted unifrac") +
+    theme(
+        legend.position = "right",
+        legend.title = element_text(size = 25, face = "bold",  colour = "#E91E63"),
+        legend.text = element_text(size = 25),
+        axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 1),
+        axis.title.y = element_text(size = 25, colour = "#E91E63", hjust = 0.5),
+        axis.text = element_text(size = 30, face = "bold", color = "black"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
+    scale_color_brewer(palette = "Set1")
+
+
+
+
+library(vegan)
+
+# vegan::betadisper()による群内分散の検定 
+betadisper <- betadisper(unifrac_dist, group = pcoa_df$dps)
+permutest(betadisper, permutations = 999)
+
+# PERMANOVAによる有意差検定
+adonis_res <- adonis2(unifrac_dist ~ dps, data = pcoa_df, permutations = 999)
+
+
+
+#### Prevalence Filtering ----------------------
+physeq_filt <- filter_taxa(PhyseqData, function(x) sum(x > 0) > (0.2 * length(x)), TRUE)
+unifrac_dist <- UniFrac(physeq_filt, weighted = TRUE, normalized = TRUE, parallel = FALSE)
+pcoa_res <- ape::pcoa(unifrac_dist)
+
+pcoa_df <- as.data.frame(pcoa_res$vectors[, 1:2])
+pcoa_df$Sample.Name <- rownames(pcoa_df)
+pcoa_df <- merge(pcoa_df, MetaData, by = "Sample.Name")
+
+ggplot(pcoa_df, aes(x = Axis.1, y = Axis.2, color = dps)) +
+    geom_point(size = 11, alpha = 0.7) +
+    geom_text(aes(label = Sample.Name), vjust = -1.3, size = 6) + 
+    labs(x = paste0("PCoA1 (", round(pcoa_res$values$Relative_eig[1] * 100, 1), "%)"),
+         y = paste0("PCoA2 (", round(pcoa_res$values$Relative_eig[2] * 100, 1), "%)")) +
+    labs(caption = "PCoA with weighted unifrac") +
+    theme(
+        legend.position = "right",
+        legend.title = element_text(size = 25, face = "bold",  colour = "#E91E63"),
+        legend.text = element_text(size = 25),
+        axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 1),
+        axis.title.y = element_text(size = 25, colour = "#E91E63", hjust = 0.5),
+        axis.text = element_text(size = 30, face = "bold", color = "black"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
+    scale_color_brewer(palette = "Set1")
+
+
+
+#### RawData -----------------------------------
+unifrac_dist <- UniFrac(PhyseqData, weighted = TRUE, normalized = TRUE, parallel = FALSE)
+pcoa_res <- ape::pcoa(unifrac_dist)
+
+pcoa_df <- as.data.frame(pcoa_res$vectors[, 1:2])
+pcoa_df$Sample.Name <- rownames(pcoa_df)
+pcoa_df <- merge(pcoa_df, MetaData, by = "Sample.Name")
+
+ggplot(pcoa_df, aes(x = Axis.1, y = Axis.2, color = dps)) +
+    geom_point(size = 11, alpha = 0.7) +
+    geom_text(aes(label = Sample.Name), vjust = -1.3, size = 6) + 
+    labs(x = paste0("PCoA1 (", round(pcoa_res$values$Relative_eig[1] * 100, 1), "%)"),
+         y = paste0("PCoA2 (", round(pcoa_res$values$Relative_eig[2] * 100, 1), "%)")) +
+    labs(caption = "PCoA with weighted unifrac") +
+    theme(
+        legend.position = "right",
+        legend.title = element_text(size = 25, face = "bold",  colour = "#E91E63"),
+        legend.text = element_text(size = 25),
+        axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 1),
+        axis.title.y = element_text(size = 25, colour = "#E91E63", hjust = 0.5),
+        axis.text = element_text(size = 30, face = "bold", color = "black"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
+    scale_color_brewer(palette = "Set1")
+
 
 # Rarefaction Curve -------------------------
 

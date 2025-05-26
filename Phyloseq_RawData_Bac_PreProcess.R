@@ -17,6 +17,8 @@ load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq
 dev.off()
 rm(list = ls())
 
+cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
+
 
 # Prevalence filtering ----------------------
 

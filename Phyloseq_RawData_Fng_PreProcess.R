@@ -1,17 +1,32 @@
 # Setting -----------------------------------
+
 rm(list = ls())
-# MacBookAir or Proでマイドライブ or My Driveで変わるため注意
-setwd("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331")
 
-# 不必要なpackageはロードしない方が良い
-# lib <- c("ggplot2", "phyloseq", "dplyr", "scales",
-#          "RColorBrewer", "ggsci", "cowplot", "vegan", "purrr")
-# for (i in lib) {
-#     print(i)
-#     library(i, quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE, character.only = TRUE)
-# }
+setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/PhyloseqData.RData")
+library(phyloseq)
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Input/PhyseqData_Fng.RData")
+
+dev.off()
+
+cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
+
+# Exports_OTU_Table -------------------------
+## ASVs Tableの生成と出力
+otu_mat <- t(as(otu_table(PhyseqData_Fng), Class = "matrix"))
+tax_mat <- as(tax_table(PhyseqData_Fng), Class = "matrix")
+otu_table <- cbind(otu_mat, tax_mat)
+write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_otu_table.csv",
+          row.names = TRUE)
+
+## シングルトン有無の確認
+sum(as(otu_table(PhyseqData_Fng), Class = "matrix") == 1)
+tail(phyloseq::taxa_sums(PhyseqData_Fng))
+plot_richness(PhyseqData_Fng, nrow = 3)
+
+ggsave(filename = "Fng_RichnessIndex.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 # Prevalence filtering ----------------------
 
@@ -133,47 +148,473 @@ plot_bar(ps_Pseudomonadota, fill = "Genus")
 # physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
 
 
-# FilteringMethods --------------------------
+# RelativeAbundunce -------------------------
+## Color_Setting -----------------------------
 
-# Family Level 
+library(phyloseq)
+library(ggplot2)
+library(cowplot)
+library(dplyr)
+library(scales)
 
-PhyseqData_Family <- PhyseqData  |> 
-    tax_glom(taxrank = "Family") |>                        # agglomerate at phylum level
+colors_34 <- c(
+    "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", 
+    "#e6ab02", "#a6761d", "#666666", "#8dd3c7", "#ffffb3",
+    "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", 
+    "#fccde5", "#bc80bd", "#ccebc5", "#ffed6f", "#7fc97f", 
+    "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", 
+    "#6a3d9a", "#cab2d6", "#ff7f00", "#b2df8a", "#a6cee3", 
+    "#fb9a99", "#1f78b4", "#33a02c", "#b15928")
+
+color_31 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
+              "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF", "#F0E442", "#9E14D2",
+              "#7D8B33", "#B5F56D", "#3F51B5", "#D32F2F", "#0288D1", "#7B1FA2", 
+              "#388E3C", "#FBC02D", "#0288D1", "#8BC34A", "#FF5722", "#8E24AA", 
+              "#795548", "#9C27B0", "#3F51B5", "#4CAF50", "#FF9800", "#E91E63", 
+              "#CDDC39")
+
+colors_40 <- c(
+    "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", 
+    "#e6ab02", "#a6761d", "#666666", "#8dd3c7", "#ffffb3",
+    "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", 
+    "#fccde5", "#bc80bd", "#ccebc5", "#ffed6f", "#7fc97f", 
+    "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", 
+    "#6a3d9a", "#cab2d6", "#ff7f00", "#b2df8a", "#a6cee3", 
+    "#fb9a99", "#1f78b4", "#33a02c", "#b15928", "#e41a1c", 
+    "#984ea3", "#4daf4a", "#ff69b4", "#a65628", "#999999"
+)
+
+colors_40 <- c(
+    "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+    "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+    "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+    "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+    "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+    "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+    "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+    "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc"
+)
+
+colors_41 <- c("turquoise","sienna","tomato","peru","blue3","coral2","firebrick",
+               "green3","yellow3","seagreen4","orange","red","deeppink","cyan",
+               "darkorange3","darkviolet","red3","red4","grey81","seagreen1",
+               "darkorange4","yellow","yellow4","green","green4","hotpink","blue4",
+               "purple","purple3","purple4","tan","tan3","maroon","tan4","black",
+               "pink","navy","pink3","lawngreen","pink4","lightskyblue")
+
+
+## Phylum Level -------------------------------
+
+PhyseqData_Phylum <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Phylum") %>%                        # agglomerate at phylum level
     transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
     psmelt()  |>                                            # Melt to long format
     filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
-    arrange(desc(Family))                                   # Sort data frame alphabetically by phylum
+    arrange(desc(Phylum))
 
-PhyseqData_Family$dps <- factor(PhyseqData_Family$dps, levels = c(0, 3, 7))
-unique(PhyseqData_Family$Family) 
+unique(psmelt(PhyseqData_Fng)$Phylum)
+length(unique(psmelt(PhyseqData_Fng)$Phylum))
 
-write.csv(PhyseqData_Family,
-          file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData_Family.csv", 
-          row.names = TRUE) 
+Descending_Phylum <- PhyseqData_Phylum |> 
+    group_by(Phylum)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Phylum)
+
+PhyseqData_Phylum$Phylum <- factor(PhyseqData_Phylum$Phylum, levels = Descending_Phylum)
+
+ggplot(PhyseqData_Phylum, aes(x = dps, y = Abundance, fill = Phylum)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Phylum > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none")
+
+ggsave(filename = "Fng_Relative_abundance_Phylum.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-# Genus Level 
+ggplot(PhyseqData_Phylum, aes(x = SampleName, y = Abundance, fill = Phylum)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    xlab("Samples") +
+    ylab("Relative Abundance (Phylum > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 24, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none")
 
-PhyseqData_Genus <- PhyseqData  |> 
-    tax_glom(taxrank = "Genus") |>                        
+
+
+ggsave(filename = "Fng_Relative_abundance_Phylum_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+ggdraw(get_legend(
+    ggplot(PhyseqData_Phylum, aes(x = dps, y = Abundance, fill = Phylum)) + 
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = colors_40) +
+        guides(fill = guide_legend(reverse = FALSE, keywidth = 0.7, 
+                                   keyheight = 1.45, override.aes = list(size = 7), nrow = 2)) +
+        scale_y_continuous(labels = percent) +
+        xlab("Days post Fungicide") +
+        ylab("Relative Abundance (Phylum > 1%) \n") +
+        theme(
+            axis.title = element_text(size = 25, face = "bold", color = "black"),
+            axis.text = element_text(size = 10, color = "black"),
+            panel.grid.minor = element_blank(),
+            legend.text = element_text(size = 22, color = "black", face = "bold.italic"),
+            legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
+            legend.background = element_rect(fill = "gray80"),
+        )
+))
+
+
+## Class Level -------------------------------
+
+PhyseqData_Class <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Class")  |>                         
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    
+    psmelt()  |>                                            
+    filter(Abundance > 0.01)  |>                            
+    arrange(desc(Class))
+
+unique(psmelt(PhyseqData_Fng)$Class)
+length(unique(psmelt(PhyseqData_Fng)$Class))
+
+Descending_Class <- PhyseqData_Class  |> 
+    group_by(Class)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Class)
+
+PhyseqData_Class$Class <- factor(PhyseqData_Class$Class, levels = Descending_Class)
+
+ggplot(PhyseqData_Class, aes(x = dps, y = Abundance, fill = Class)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Class Level ") +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Class > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+ggsave(filename = "Fng_Relative_abundance_Class.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Class, aes(x = SampleName, y = Abundance, fill = Class)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Class Level ") +
+    xlab("Samples") +
+    ylab("Relative Abundance (Class > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 24, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+ggsave(filename = "Fng_Relative_abundance_Class_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggdraw(get_legend(
+    ggplot(PhyseqData_Class, aes(x = dps, y = Abundance, fill = Class)) + 
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = colors_40) +
+        guides(fill = guide_legend(reverse = FALSE, keywidth = 0.7, 
+                                   keyheight = 1.45, override.aes = list(size = 7),
+                                   ncol = 2)) +
+        scale_y_continuous(labels = percent) +
+        xlab("Days post Fungicide") +
+        ylab("Relative Abundance (Phylum > 1%) \n") +
+        theme(
+            axis.title = element_text(size = 25, face = "bold", color = "black"),
+            axis.text = element_text(size = 10, color = "black"),
+            panel.grid.minor = element_blank(),
+            legend.text = element_text(size = 22, color = "black", face = "bold.italic"),
+            legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
+            legend.background = element_rect(fill = "gray80")
+        )
+))
+
+
+
+## Order Level -------------------------------
+
+PhyseqData_Order <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Order")  |>                       
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    
+    psmelt()  |>                                            
+    filter(Abundance > 0.01)  |>                            
+    arrange(desc(Order))
+
+unique(psmelt(PhyseqData_Fng)$Order)
+length(unique(psmelt(PhyseqData_Fng)$Order))
+
+Descending_Order <- PhyseqData_Order  |> 
+    group_by(Order)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Order)
+
+PhyseqData_Order$Order <- factor(PhyseqData_Order$Order, levels = Descending_Order)
+unique(PhyseqData_Order$Order)
+length(unique(PhyseqData_Order$Order))
+
+ggplot(PhyseqData_Order, aes(x = dps, y = Abundance, fill = Order)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Order Level ") +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Order > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+ggsave(filename = "Fng_Relative_abundance_Order.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Order, aes(x = SampleName, y = Abundance, fill = Order)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Order Level ") +
+    xlab("Samples") +
+    ylab("Relative Abundance (Order > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 24, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+ggsave(filename = "Fng_Relative_abundance_Order_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+ggdraw(get_legend(
+    ggplot(PhyseqData_Order, aes(x = dps, y = Abundance, fill = Order)) + 
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = colors_40) +
+        guides(fill = guide_legend(reverse = FALSE, keywidth = 0.7, 
+                                   keyheight = 1.45, override.aes = list(size = 7),
+                                   ncol = 2)) +
+        theme(axis.title = element_text(size = 25, face = "bold", color = "black"),
+              axis.text = element_text(size = 10, color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.text = element_text(size = 22, color = "black", face = "bold.italic"),
+              legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
+              legend.background = element_rect(fill = "gray80"))
+    ))
+
+
+## Family Level  -----------------------------
+
+PhyseqData_Family <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Family")  |>                        
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    
+    psmelt()  |>                                            
+    filter(Abundance > 0.01)  |>                            
+    arrange(desc(Family))
+
+
+Descending_Family <- PhyseqData_Family  |> 
+    group_by(Family)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(total_abundance)  |> 
+    pull(Family)
+
+
+PhyseqData_Family$Family <- factor(PhyseqData_Family$Family, levels = Descending_Family)
+unique(PhyseqData_Family$Family)
+length(unique(PhyseqData_Family$Family))
+
+
+
+ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill", width = 0.8) +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 0.7, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Family Level ") +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+
+ggsave(filename = "Fng_Relative_abundance_Family.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Family, aes(x = SampleName, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1.45, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Family Level ") +
+    xlab("Samples") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 22, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+
+ggsave(filename = "Fng_Relative_abundance_Family_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### Legend Plots
+ggdraw(get_legend(
+    ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = colors_40) +
+        guides(fill = guide_legend(reverse = FALSE, keywidth = 0.7, 
+                                   keyheight = 1.45, override.aes = list(size = 7),
+                                   ncol = 2)) +
+        theme(axis.title = element_text(size = 25, face = "bold", color = "black"),
+              axis.text = element_text(size = 10, color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.text = element_text(size = 22, color = "black", face = "bold.italic"),
+              legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
+              legend.background = element_rect(fill = "gray80"))
+))
+
+
+## Genus Level  ------------------------------
+PhyseqData_Genus <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Genus") |> # Genusで統合                     
     transform_sample_counts(function(x) {x/sum(x)} )  |>   
     psmelt()  |>                                           
-    filter(Abundance > 0.01)  |>                           
-    arrange(desc(Genus))
-
-PhyseqData_Genus$dps <- factor(PhyseqData_Genus$dps, levels = c(0, 3, 7))
-
-write.csv(PhyseqData_Genus,
-          file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData_Genus.csv", 
-          row.names = TRUE) 
-
-unique(PhyseqData_Genus$Genus) 
-
-# PhyseqDataの分類レベルにおけるuniqueな分類の総数
-unique(psmelt(PhyseqData)$Genus)
+    dplyr::filter(Abundance > 0.01)  |>                           
+    dplyr::arrange(desc(Genus))
 
 
-## Top 50 Filtering --------------------------
+unique(psmelt(PhyseqData_Fng)$Genus)
+
+length(unique(PhyseqData_Genus$Genus))
+unique(PhyseqData_Genus$Genus)
+
+
+Descending_Genus <- PhyseqData_Genus  |> 
+    dplyr::group_by(Genus)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Genus)
+
+PhyseqData_Genus$Genus <- factor(PhyseqData_Genus$Genus, levels = Descending_Genus)
+
+
+ggplot(PhyseqData_Genus, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill", width = 0.8) +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 0.7, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Genus Level ") +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+ggsave(filename = "Fng_Relative_abundance_Genus.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Genus, aes(x = SampleName, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill", width = 0.8) +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 0.7, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Genus Level ") +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+
+ggsave(filename = "Fng_Relative_abundance_Genus_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### Legend Plots
+ggdraw(get_legend(
+    ggplot(PhyseqData_Genus, aes(x = dps, y = Abundance, fill = Genus)) + 
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = colors_40) +
+        guides(fill = guide_legend(reverse = FALSE, keywidth = 0.7, 
+                                   keyheight = 1.45, override.aes = list(size = 7),
+                                   ncol = 2)) +
+        theme(axis.title = element_text(size = 25, face = "bold", color = "black"),
+              axis.text = element_text(size = 10, color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.text = element_text(size = 22, color = "black", face = "bold.italic"),
+              legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
+              legend.background = element_rect(fill = "gray80"))
+))
+
+# Top 50 Filtering --------------------------
 
 # Selects Top 50 
 top50_taxa <- names(sort(taxa_sums(PhyseqData), decreasing = TRUE)[1:50])
@@ -181,7 +622,7 @@ prune_taxa(top_taxa, PhyseqData)
 
 
 
-## Transform sample counts -------------------
+# Transform sample counts -------------------
 
 PhyseqData_RA <- transform_sample_counts(PhyseqData, function(x) 100* x / sum(x))
 PhyseqData_log10 <- transform_sample_counts(PhyseqData, log)
@@ -978,115 +1419,518 @@ f.mahattan
 
 
 # DESeq2 ------------------------------------
+library(DESeq2)
+library(ggplot2)
+
+## No Taxa Filtering -------------------------
+
+rank_names(PhyseqData_Fng)
+
+## Filtering 存在量 > 100 Reads
+PhyseqData_DESeq2 <- PhyseqData_Fng  |> 
+    filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
 
 
-## PhyseqObjectsDESeq2 -----------------------
+### DESeq2 Fungicide.use ---------
 
-rm(list = ls())
-library("phyloseq")
-library("DESeq2")
+FungicideUse_dds = phyloseq_to_deseq2(PhyseqData_DESeq2, ~ `Fungicide.use`) 
 
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/PhyloseqData.RData")
+### DESeq()のParameterは、最適な引数を設定すること
+FungicideUse_dds = DESeq(FungicideUse_dds, test="Wald", fitType="parametric") 
 
-PhyseqData <- transform_sample_counts(PhyseqData, function(x) 100*(x / sum(x)))
-PhyseqData <- filter_taxa(PhyseqData, function(x) mean(x) > 0.1, TRUE)
-
-write.csv(t(PhyseqData@otu_table@.Data),
-           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/PhyseqData@otu_table@.Data.csv")
+FungicideUse_res <- results(FungicideUse_dds, cooksCutoff = FALSE)
+FungicideUse_res <- cbind(as(FungicideUse_res, "data.frame"),
+                          as(tax_table(PhyseqData_Fng)[rownames(FungicideUse_res), ], "matrix"))
 
 
-dps_dds = phyloseq_to_deseq2(PhyseqData, ~ dps)
-dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
-res = results(dps_dds, cooksCutoff = FALSE)
-alpha = 0.01
-# write.csv(res, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/res.csv")
-sigtab = res[which(res$padj < alpha), ] 
-sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
-head(sigtab)
+write.csv(as(FungicideUse_res, "data.frame"),
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_FungicideUse_res_no_taxa_filtering.csv")
 
 
+### 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
+FungicideUse_sigtab = FungicideUse_res[which(FungicideUse_res$padj < 0.01), ] 
 
-### Taxa Level in Family Level --------------------------------
-rm(list = ls())
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/PhyloseqData.RData")
-
-
-
-#### Filtering ---------------------
-rank_names(PhyseqData)
-PhyseqData_Family <- PhyseqData  |> 
-    tax_glom(taxrank = "Family") |>                      　       # agglomerate at phylum level
-    filter_taxa(function(x) mean(x) > 100, TRUE) |>               # Read数が約100000であり、0.1%のReads数 
-    subset_taxa(Kingdom == "Bacteria")                            # Archaeaを除去
-
-
-# PhyseqData_Family.csv <- read.csv("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/PhyseqData_Family.csv",
-#             header = TRUE, sep = ",", fileEncoding = "UTF-8")
-
-# ASVsTable.csv <- read.csv("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ASVsTable.csv",
-#             header = TRUE, sep = ",", fileEncoding = "UTF-8")
-
-# write.csv(cbind(t(PhyseqData_Family@otu_table@.Data), PhyseqData_Family@tax_table@.Data),
-#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/PhyseqData_Family.csv")
-
-#### DESeq2 conversion & results table ----------------
-
-dps_dds = phyloseq_to_deseq2(PhyseqData_Family, ~ `Fungicide.use`)            # dps列(散布後日数)で比較
-dps_dds = DESeq(dps_dds, test="Wald", fitType="parametric")
+dim(FungicideUse_sigtab)
 
 
 
-res = results(dps_dds, cooksCutoff = FALSE)
-# write.csv(res, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/res.csv")
- 
+### Plots ------------------------------
 
-alpha = 0.01
-sigtab = res[which(res$padj < alpha), ] 
-sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(PhyseqData)[rownames(sigtab), ], "matrix"))
-head(sigtab)
-dim(sigtab)
-write.csv(sigtab, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/Filtering_ASVs_Table/sigtab.csv")
-
-#### Results_ggplot ----------------------------
-library("ggplot2")
-theme_set(theme_bw())
+library(ggplot2)
+library(scales)
 
 
-# Phylum order
-x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
+### Phylum AscendingOrder Sort in log2FoldChange 
+x = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Phylum, function(x) max(x))
 x = sort(x, TRUE)
-sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
-# Genus order
-x = tapply(sigtab$log2FoldChange, sigtab$Genus, function(x) max(x))
-x = sort(x, TRUE)
-sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
-
-# ggplot(sigtab, aes(x=Family, y=log2FoldChange, color=Phylum)) + geom_point(size=abs(sigtab$log2FoldChange)) + 
-#   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
+FungicideUse_sigtab$Phylum = factor(as.character(FungicideUse_sigtab$Phylum), levels=names(x))
 
 
-
-sigtab$Sign <- ifelse(sigtab$log2FoldChange < 0, "Negative", "Positive")
-sigtab$ASV <- rownames(sigtab)
-custom_colors_21 <- c(
-    "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00","#FFFF33", "#A65628", "#F781BF", "#999999", "#66C2A5",
-    "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F","#E5C494", "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3","#E7298A"
-)
+### Family AscendingOrder Sort in log2FoldChange 
+y = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Family, function(x) max(x))
+y = sort(y, TRUE)
+FungicideUse_sigtab$Family = factor(as.character(FungicideUse_sigtab$Family), levels=names(y))
 
 
-ggplot(sigtab, aes(x = Family, y = abs(sigtab$log2FoldChange), color = Phylum, shape = Sign)) +
-    geom_point(size = abs(sigtab$log2FoldChange)) +
-    geom_text(aes(label = ASV), vjust = -1, size = 3) + 
-    scale_color_manual(values = custom_colors_21) +
-    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
-    scale_shape_manual(values = c("Positive" = 16, "Negative" = 17)) +  # 丸と三角など
-    ylab("log2FoldChange") +
+### Genus AscendingOrder Sort in log2FoldChange 
+z = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Genus, function(x) max(x))
+z = sort(z, TRUE)
+FungicideUse_sigtab$Genus = factor(as.character(FungicideUse_sigtab$Genus), levels=names(z))
+
+
+
+### padjをlog10へ
+FungicideUse_sigtab$log10value <- -log10(FungicideUse_sigtab$padj)
+
+
+### log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
+FungicideUse_sigtab$Sign <- ifelse(FungicideUse_sigtab$log2FoldChange < 0, "Enriched", "Depleted")
+
+
+### log2FoldChangeの通常値変換
+FungicideUse_sigtab$value <- 2^FungicideUse_sigtab$log2FoldChange
+
+
+#### 行名をASV列として、追加し、順番を変更
+FungicideUse_sigtab$ASV <- rownames(FungicideUse_sigtab)
+FungicideUse_sigtab <- FungicideUse_sigtab |> 
+    select(ASV, log10value, log2FoldChange, value, Sign, everything())
+
+
+
+### sigtabのcsv保存
+write.csv(FungicideUse_sigtab,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_FungicideUse_sigtab_no_taxa_filtering.csv",
+          row.names = FALSE)
+
+
+
+### ColorPalleteの数を把握
+unique(FungicideUse_sigtab$Phylum)
+unique(FungicideUse_sigtab$Family)
+unique(FungicideUse_sigtab$Genus)
+
+# unique(sigtab$Family)に基づいて、colorパレットを設定
+colors_21 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", 
+               "#F781BF", "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854",
+               "#FFD92F", "#E5C494", "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A")
+
+
+colors_31 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", 
+               "#7F7F7F", "#BCBD22", "#17BECF", "#F0E442", "#9E14D2", "#7D8B33", "#B5F56D",
+               "#3F51B5", "#D32F2F", "#0288D1", "#7B1FA2", "#388E3C", "#FBC02D", "#0288D1",
+               "#8BC34A", "#FF5722", "#8E24AA", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", 
+               "#FF9800", "#E91E63", "#CDDC39")
+
+
+
+#### Plots sigtab  --------------------
+
+##### Y is Family ---------------------------
+###### log2 FoldChange ---------------------
+
+#### in Phylum Colors 
+ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
+    geom_point(size = 7, alpha = 0.6) +
+    geom_text(aes(label = ASV), vjust = -1, size = 4) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab(" log2 FoldChange ") +
     xlab("Family") +
-    theme(legend.position = "right")
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+          axis.title.y = element_text(size = 25, colour = "#E91E63"),
+          axis.text = element_text(size = 14, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.65, y=0.9),
+          plot.caption = element_text(size = 15, color = "gray20")) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Phylum level") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+        ))
+
+
+ggsave(filename = "Fng_DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+###### log10 Value ------------------------------
+#### in Phylum Colors 
+ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum, shape = Sign)) +
+    geom_point(size = 6, alpha = 0.6) +
+    geom_text(aes(label = ASV), vjust = -1, size = 4) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log10 Value") +
+    xlab("Family") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+          axis.title.y = element_text(size = 25, colour = "#E91E63"),
+          axis.text = element_text(size = 14, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.65, y=0.9),
+          plot.caption = element_text(size = 15, color = "gray20")) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Phylum level") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+        ))
+
+
+ggsave(filename = "Fng_DESeq2_Family_log10Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+#### Legend Plots in Phylum level
+
+library(ggpubr)
+library(cowplot)
+
+#### 余白の調整は難しいため、スクショで対応
+
+#### Phylum Level
+ggdraw(
+    get_legend(
+        ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum)) +
+            geom_point() +
+            scale_color_manual(values = colors_21) +
+            theme_void() +
+            theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5),
+                  legend.title = element_text(size = 30, face = "bold"),
+                  legend.text = element_text(size = 17, face = "bold"),
+                  legend.spacing = unit(0, "pt")) +
+            theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+                  axis.text = element_text(size = 10,color = "black"),
+                  strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+                  panel.grid.minor = element_blank(),
+                  legend.position = "top",
+                  plot.margin = margin(10, 10, 10, 10, unit = "pt")) + 
+            guides(
+                color = guide_legend(override.aes = list(size = 10))
+            )))
+
+#### Family Level
+ggdraw(
+    get_legend(
+        ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Family)) +
+            geom_point(aes(color = Family)) +
+            scale_color_manual(values = colors_21) +
+            theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+                  axis.text = element_text(size = 10,color = "black"),
+                  strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+                  panel.grid.minor = element_blank(),
+                  legend.position = "top",
+                  plot.margin = margin(10, 10, 10, 10, unit = "pt")) + 
+            guides(
+                color = guide_legend(override.aes = list(size = 10))
+            )))
+
+ggdraw(get_legend(
+    ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), fill = Family)) + 
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = colors_21) +
+        guides(fill = guide_legend(reverse = FALSE, keywidth = 0.7, 
+                                   keyheight = 1.45, override.aes = list(size = 7),
+                                   ncol = 2)) +
+        theme(axis.title = element_text(size = 25, face = "bold", color = "black"),
+              axis.text = element_text(size = 10, color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.text = element_text(size = 22, color = "black", face = "bold.italic"),
+              legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
+              legend.background = element_rect(fill = "gray80"))
+))
 
 
 
-#### cladogram ---------------------------------
+
+###### Value -------------------------------------
+
+#### in Phylum Colors 
+ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shape = Sign)) +
+    geom_point(size = 6, alpha = 0.6) +
+    geom_text(aes(label = ASV), vjust = -1, size = 4) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("Value") +
+    xlab("Family") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+          axis.title.y = element_text(size = 25, colour = "#E91E63"),
+          axis.text = element_text(size = 18, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.65, y=0.9),
+          plot.caption = element_text(size = 15, color = "gray20")) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Phylum level") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+        ))
+
+
+ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+
+
+##### X is Genus ----------------------------
+
+###### log2 FoldChange ----------------------------
+
+####  Coloring at Family 
+ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log2FoldChange), color = Family, shape = Sign)) +
+    geom_point(size = 10, alpha = 0.7) +
+    geom_text(aes(label = ASV), vjust = -1, size = 6) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log2FoldChange") +
+    xlab("Genus") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+          axis.title.y = element_text(size = 25, colour = "#E91E63"),
+          axis.text = element_text(size = 18, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.5, y=0.9),
+          plot.caption = element_text(size = 15, color = "gray20")) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Family level") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+        ))
+
+
+ggsave(filename = "DESeq2_Genus_log2FoldChange_ColorFamily_sigtab_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+###### log10 Value -------------------------------
+
+
+#### Coloring at Family
+ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, shape = Sign)) +
+    geom_point(size = 10, alpha = 0.6) +
+    geom_text(aes(label = ASV), vjust = -1, size = 5) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log10 Value") +
+    xlab("Genus") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+          axis.title.y = element_text(size = 25, colour = "#E91E63"),
+          axis.text = element_text(size = 18, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.65, y=0.9),
+          plot.caption = element_text(size = 15, color = "gray20")) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Family level") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+        ))
+
+
+ggsave(filename = "DESeq2_Genus_log10Value_ColorFamily_sigtab_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+#### in Phylum Colors & value
+ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shape = Sign)) +
+    geom_point(size = 6, alpha = 0.6) +
+    geom_text(aes(label = ASV), vjust = -1, size = 4) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("Value") +
+    xlab("Family") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+          axis.title.y = element_text(size = 25, colour = "#E91E63"),
+          axis.text = element_text(size = 18, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.65, y=0.9),
+          plot.caption = element_text(size = 15, color = "gray20")) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Phylum level") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+        ))
+
+
+ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+
+###### Legend Plots ------------------------------
+
+library(ggpubr)
+library(cowplot)
+
+#### 余白の調整は難しいため、スクショで対応
+ggdraw(
+    get_legend(
+        ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum)) +
+            geom_point() +
+            scale_color_manual(values = colors_21) +
+            theme_void() +
+            theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5),
+                  legend.title = element_text(size = 30, face = "bold"),
+                  legend.text = element_text(size = 17, face = "bold"),
+                  legend.spacing = unit(0, "pt")) +
+            theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+                  axis.text = element_text(size = 10,color = "black"),
+                  strip.text = element_text(size = 10, face = "bold.italic", color = "black"),
+                  panel.grid.minor = element_blank(),
+                  legend.position = "top",
+                  plot.margin = margin(10, 10, 10, 10, unit = "pt")) + 
+            guides(
+                color = guide_legend(override.aes = list(size = 10))
+            )))
+
+
+
+#### Plots res ---------------------------------
+
+
+FungicideUse_res$log10value <- -log10(FungicideUse_res$padj)
+FungicideUse_res$Sign <- ifelse(FungicideUse_res$log2FoldChange < 0, "Enriched", "Depleted")
+FungicideUse_res$ASV <- rownames(FungicideUse_res)
+
+### log2FoldChangeの通常値変換
+FungicideUse_res$value <- 2^FungicideUse_res$log2FoldChange
+
+
+
+#### 行名をASV列として、追加し、順番を変更
+FungicideUse_res <- FungicideUse_res |> 
+    select(ASV, log10value, log2FoldChange, value, Sign, everything())
+
+### sigtabのcsv保存
+write.csv(FungicideUse_res,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv",
+          row.names = FALSE)
+
+
+colnames(FungicideUse_res)
+unique(FungicideUse_res$Family)
+unique(FungicideUse_res$Genus)
+
+
+### Family数に応じて、Colorを設定
+colors_40 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
+               "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD", "#2CA02C", "#FFBB78", "#98DF8A",
+               "#AEC7E8", "#FF9896", "#C5B0D5", "#F7B6D2", "#C7E9C0", "#9ECAE1", "#FDD0A2", "#DADAEB")
+
+colors_29 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
+               "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
+               "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
+               "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD")
+
+### log10 Value Plots in Family Colors
+### → 範囲が広すぎて、Plotが見にくいため、sigtabを使用すること
+ggplot(FungicideUse_res, aes(x = Family, y = abs(log10value), color = Phylum, shape = Sign)) +
+    geom_point(size = 6, alpha = 0.6) +
+    geom_text(aes(label = ASV), vjust = -1, size = 4) + 
+    scale_color_manual(values = colors_21) +
+    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log10 Value") +
+    xlab("Family") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+          axis.title.y = element_text(size = 25, colour = "#E91E63"),
+          axis.text = element_text(size = 18, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.position = c(x=0.65, y=0.9),
+          plot.caption = element_text(size = 15, color = "gray20")) +
+    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Phylum level") +
+    guides(
+        color = "none",
+        size = "none",
+        alpha = "none",
+        shape = guide_legend(override.aes = list(size = 5),
+                             title.theme = element_text(face = "bold", size = 20)
+        ))
+
+ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+
+
+
+# venn diagram --------------
+
+PhyseqData_0days <- subset_samples(PhyseqData, dps %in% c("0"))
+PhyseqData_3days <- subset_samples(PhyseqData, dps %in% c("3"))
+PhyseqData_7days <- subset_samples(PhyseqData, dps %in% c("7"))
+
+
+PhyseqData_FungicideUse_no <- subset_samples(PhyseqData, Fungicide.use %in% c("no"))
+PhyseqData_FungicideUse_yes <- subset_samples(PhyseqData, Fungicide.use %in% c("yes"))
+
+
+PhyseqData_FungicideUse_no <- prune_taxa(taxa_sums(PhyseqData_FungicideUse_no) > 0, PhyseqData_FungicideUse_no)
+PhyseqData_FungicideUse_yes <- prune_taxa(taxa_sums(PhyseqData_FungicideUse_yes) > 0, PhyseqData_FungicideUse_yes)
+
+
+# Venn Diagram 
+library(eulerr)
+
+s4 <- list(FungicideUse = names(PhyseqData_FungicideUse_yes),
+           FungicideNoUse = names(PhyseqData_FungicideUse_no))
+
+plot(venn(s4))
+plot(euler(s4, shape = "ellipse"), 
+     quantities = list(font = 2, col = "black"),
+     fills = list(fill = c("tomato", "steelblue"), alpha = 0.6),
+     labels = list(font = 2, col = "black"))
+
+
+
+
+# cladogram ---------------------------------
 library(phyloseq)
 library(DESeq2)
 library(ggtree)
@@ -1165,7 +2009,7 @@ p1.1
 
 
 
-##### Example -----------------------------------
+## Example -----------------------------------
 # The path of tree file.
 trfile <- system.file("extdata", "tree.nwk", package="ggtreeExtra")
 # The path of file to plot tip point.
@@ -1271,7 +2115,7 @@ colnames(taxa.tree@data$nodeClass)
 a <- taxa.tree@data
 
 
-### Taxa Level in Order Level -----------------
+## Taxa Level in Order Level -----------------
 
 
 

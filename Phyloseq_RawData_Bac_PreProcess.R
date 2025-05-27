@@ -384,7 +384,7 @@ ggplot(aes(x = dps, y = mean_abund)) +
           panel.grid.minor = element_blank())
 
 ggsave(filename = "ASV205_Bryobacter_dps_Abundance_Plots.png", plot = last_plot(),
-       width = 2800, height = 2520, dpi = 300, units = "px",
+       width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 dev.off()

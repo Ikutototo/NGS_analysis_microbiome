@@ -1,28 +1,5 @@
 ---
 title: "Phyloseq_RawData_Bacteria_PhyloseqObjectsConstructs"
-author: "saito ikuto"
-date: now
-date-format: "YYYY/MM/DD, HH:mm"
-format: 
- html:
-    grid: 
-      body-width: 1600px
-    code-fold: FALSE
-    toc: true
-    toc-expand: true
-    toc-location: right
-    toc-depth: 3
-    number-sections: true
-    embed-resources: false
-    highlight-style: atom-one
-    theme: yeti
-    css: style.css
- pdf:
-    toc: true
-    number-sections: true
-    colorlinks: true
-    documentclass: scrartcl
-    papersize: letter
 ---
 
 # Reference & Memo
@@ -68,7 +45,7 @@ ToDoList
 knitr::opts_chunk$set(echo = TRUE)
 # MacBookAir or ProでPATH(My drive or マイドライブ)が異なるため注意が必要
 knitr::opts_knit$set(
-    root.dir = "/Users/ikutosaito/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331")
+    root.dir = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
 ```
 
@@ -92,7 +69,7 @@ knitr::opts_knit$set(
 
 # DADA2_??.Rで実装し、保存したRDataをload
 # MacBookAir or ProでPATH(My drive or マイドライブ)が異なるため注意が必要
-load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/250331/RData/SaveObjects/PhyloseqData.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/")
 
 
 ```

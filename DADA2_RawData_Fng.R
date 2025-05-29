@@ -223,7 +223,7 @@ input_file="your_sequences.fasta"
 output_file="blast_results.txt"
 
 # BLAST検索を実行
-blastn -query $input_file -db $db -out $output_file -outfmt 6 -evalue 1e-5 -max_target_seqs 10
+# blastn -query $input_file -db $db -out $output_file -outfmt 6 -evalue 1e-5 -max_target_seqs 10
 
 echo "BLAST search completed. Results saved to $output_file"
 

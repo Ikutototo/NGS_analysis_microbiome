@@ -1860,10 +1860,6 @@ p6 + theme(
 # `ggnewscale`
 
 
-flag <- packageVersion("ggnewscale") >= "0.5.0"
-new.fill <- ifelse(flag, "fill_ggnewscale_1", "fill_new_new")
-new.fill2 <- ifelse(flag , "fill_ggnewscale_2", "fill_new")
-
 
 p <- mpdata |>
     mp_plot_diff_res(

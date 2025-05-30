@@ -715,14 +715,322 @@ psmelt(PhyseqData) |>
          geom_jitter(height = 0, width = 0.2))()
 
 
-# Richness Index ----------------------------
+# Exports_OTU_Table -------------------------
+## ASVs Tableの生成と出力
+otu_mat <- t(as(otu_table(PhyseqData_Fng), Class = "matrix"))
+tax_mat <- as(tax_table(PhyseqData_Fng), Class = "matrix")
+otu_table <- cbind(otu_mat, tax_mat)
+write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_otu_table.csv",
+          row.names = TRUE)
 
-plot_richness(PhyseqData, measures = "Observed")
+## シングルトン有無の確認
+sum(as(otu_table(PhyseqData_Fng), Class = "matrix") == 1)
+tail(phyloseq::taxa_sums(PhyseqData_Fng))
+plot_richness(PhyseqData_Fng, nrow = 3)
+
+ggsave(filename = "RichnessIndex.png", plot = last_plot(),
+       width = 2800, height = 2520, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+# Richness Index ----------------------------
+library(phyloseq)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(tidyr)
+
+## Estimate_Richness -------------------------
+# 多様性指数は任意で 
+# シングルトンが無い場合、警告文が出るが、無視
+alpha_df <- estimate_richness(PhyseqData_Fng)
+colnames(alpha_df)
+
+rownames(data.frame(sample_data(PhyseqData_Fng)))
+rownames(alpha_df)
+
+
+# 行数が同じであることを確認した上で、cbind()
+alpha_df <- cbind(data.frame(sample_data(PhyseqData_Fng)), alpha_df) 
+colnames(alpha_df)
+alpha_df <- alpha_df |> 
+    dplyr::select(Observed,Chao1,se.chao1,ACE,
+                  se.ACE,Shannon,Simpson,InvSimpson,Fisher, everything())
+
+## NonChimera --------------------------------
+library(tibble)
+rownames(track)
+colnames(track)
+class(track)
+
+track <- rownames_to_column(as.data.frame(track), var = "Sample.Name")
+
+track |> 
+    ggplot(aes(x = Sample.Name, y = nonchim,
+               fill = Sample.Name)) +
+    scale_fill_manual(values = c("#1b9e77", "#d95f02", "#7570b3",
+                                 "#e7298a", "#66a61e", "#e6ab02",
+                                 "#a6761d", "#666666", "#8dd3c7")) + 
+    geom_bar(stat = "identity", width = 0.7) +
+    ylab("Nonchim") +
+    xlab("Sample.Name") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+ggsave(filename = "Fng_nonchim.png", plot = last_plot(), 
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+## Observed ASVs -----------------------------
+
+colnames(alpha_df)
+
+alpha_df |> 
+    ggplot(aes(x = SampleName, y = Observed,fill = SampleName)) +
+    scale_fill_manual(values = c("#1b9e77", "#d95f02", "#7570b3",
+                                 "#e7298a", "#66a61e", "#e6ab02",
+                                 "#a6761d", "#666666", "#8dd3c7")) + 
+    geom_bar(stat = "identity", width = 0.7) +
+    ylab("Observed ASVs") +
+    xlab("Sample.Name") +
+    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 12, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.background = element_rect(fill = "gray90"),
+          legend.key = element_rect(fill = "white", color = NA))
+
+
+ggsave(filename = "Fng_ObservedASVs.png", plot = last_plot(), 
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+### 一旦断念 (250511)
+# alpha_df  |> 
+#     group_by(dps)  |> 
+#     summarise(
+#         Observed_mean = mean(Observed, na.rm = TRUE),
+#         Observed_se = sd(Observed, na.rm = TRUE) / sqrt(n()),
+#         Shannon_mean = mean(Shannon, na.rm = TRUE),
+#         Shannon_se = sd(Shannon, na.rm = TRUE) / sqrt(n()),
+#         Chao1_mean = mean(Chao1, na.rm = TRUE) ,
+#         Chao1_se = sd(Chao1, na.rm = TRUE) / sqrt(n()),
+#         ACE_mean = mean(ACE, na.rm = TRUE) ,
+#         ACE_se = sd(ACE, na.rm = TRUE) / sqrt(n()),
+#         se.ACE_mean = mean(se.ACE, na.rm = TRUE) ,
+#         se.ACE_se = sd(se.ACE, na.rm = TRUE) / sqrt(n()),
+#         Simpson_mean = mean(Simpson, na.rm = TRUE) ,
+#         Simpson_se = sd(Simpson, na.rm = TRUE) / sqrt(n()),
+#         InvSimpson_mean = mean(InvSimpson, na.rm = TRUE) ,
+#         InvSimpson_se = sd(InvSimpson, na.rm = TRUE) / sqrt(n()),
+#         Fisher_mean = mean(Fisher, na.rm = TRUE) ,
+#         Fisher_se = sd(Fisher, na.rm = TRUE) / sqrt(n())) |> 
+#     pivot_longer(
+#         cols = c(Observed_mean, Shannon_mean, Chao1_mean, ACE_mean, se.ACE_mean),
+#         names_to = "index",
+#         values_to = "value"
+#     )
+#     ggplot(aes(x = dps, y = Shannon_mean)) +
+#     geom_bar(stat = "identity", fill = "steelblue", width = 0.3) +
+#     geom_errorbar(aes(ymin = Shannon_mean - Shannon_se,
+#                       ymax = Shannon_mean + Shannon_se),
+#                   width = 0.1) +
+#     ylab("Shannon Diversity Index") +
+#     xlab("dps") +
+#     theme_minimal()
+
+## Compare_RichnessIndex ---------------------
+
+### Checking Normality&EquallyDispersed -------
+library(car)
+
+# QQ Plots
+qqnorm(alpha_df$Shannon[alpha_df$dps == 0])
+qqline(alpha_df$Shannon[alpha_df$dps == 0])
+
+# 正規性の確認
+by(alpha_df$Shannon, alpha_df$dps, shapiro.test)
+
+# 等分散性の確認
+bartlett.test(Shannon ~ dps, data = alpha_df)
+leveneTest(Shannon ~ dps, data = alpha_df)
+
+# → Sample数が3つと小さいため、NonParametricで実施する
+
+### RichnessIndex StatisticalProcessing -------
+
+compare_means(Shannon ~ dps, data = alpha_df,
+              method = "wilcox.test", label = "p.format")
+
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
+              method = "wilcox.test", label = "p.format")
+
+compare_means(Shannon ~ dps, data = alpha_df,
+              method = "t.test", label = "p.format")
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
+              method = "t.test", label = "p.format")
+
+compare_means(Shannon ~ dps, data = alpha_df,
+              method = "anova", label = "p.format")
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
+              method = "anova", label = "p.format")
+
+compare_means(Shannon ~ dps, data = alpha_df,
+              method = "kruskal.test", label = "p.format")
+compare_means(Shannon ~ Fungicide.use, data = alpha_df,
+              method = "kruskal.test", label = "p.format")
+
+# kruskal.test(Shannon ~ dps, data = alpha_df)
+
+
+## Plots_Richness ----------------------------
+### Compare_dps -------------------------------
+
+# 多様性指数の統計処理 
+stat.test_dps <- compare_means(Shannon ~ dps, data = alpha_df, 
+                               method = "wilcox.test", label = "p.format")
+# y.position(p値表示の高さ)
+stat.test_dps$y.position <- seq(
+    from = max(alpha_df$Shannon, na.rm = TRUE) * 1.05,
+    by = max(alpha_df$Shannon, na.rm = TRUE) * 0.05,
+    length.out = nrow(stat.test_dps))
+
+ggplot(alpha_df, aes(x = dps, y = Shannon)) +
+    geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = dps)) +
+    xlab("Days Post FungicideUse") +
+    ylab("Shannon-Index") + 
+    theme(
+        legend.position = "top", 
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1, hjust = 0.5),
+        axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) + 
+    geom_jitter(aes(color = SampleName), width = 0.08, size = 2.5, alpha = 0.6) +
+    geom_text(aes(label = SampleName), size = 3) + 
+    stat_pvalue_manual(stat.test_dps, label = " {p.signif}", label.size = 10 , bracket.size = 0.7) +
+    scale_fill_manual(values = c( "#fdc086", "#ffff99", "#386cb0")) +
+    scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
+                                  "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a")) +
+    guides(color = guide_legend(override.aes = list(size = 5))) 
+
+
+
+ggsave(filename = "Fng_Richness_Shannon_dps.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### Compare_Fungicide.use ---------------------
+
+stat.test <- compare_means(Shannon ~ Fungicide.use, data = alpha_df,
+                           method = "wilcox.test", label = "p.format")
+# y.position(p値表示の高さ)
+stat.test$y.position <- max(alpha_df$Shannon, na.rm = TRUE) * 1.03
+
+ggplot(alpha_df, aes(x = Fungicide.use, y = Shannon)) +
+    geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = Fungicide.use)) +
+    xlab("FungicideUse") +
+    ylab("Shannon-Index") + 
+    geom_jitter(aes(color = SampleName), width = 0.1, size = 3, alpha = 0.6) +
+    stat_pvalue_manual(stat.test, label = " {p.signif} ",
+                       label.size = 8 , bracket.size = 0.7) +
+    scale_color_manual(values = c( "#F4A582", "#92C5DE", "#B2ABD2", "#A6D854",
+                                   "#FDB462", "#80B1D3", "#FB8072", "#BEBADA","#CCEBC5")) +
+    theme(legend.position = "top", 
+          axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1, hjust = 0.5),
+          axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 20, color = "black", face = "bold"),
+          panel.background = element_rect(fill = "white"),
+          panel.grid.major = element_line(color = "gray80"), 
+          panel.grid.minor = element_line(color = "gray90")) +
+    guides(color = guide_legend(override.aes = list(size = 5))) # legendのpointの大きさ調節
+
+
+ggsave(filename = "Richness_Shannon_FungicideUse.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+# Beta Diversity ----------------------------
+library(vegan)
+library(ggplot2)
+library(phyloseq)
+library(ape)         
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Input/PhyseqData_Fng.RData")
+
+otu_table <- as.data.frame(otu_table(PhyseqData_Fng))
+rm(PhyseqData, track)
+
+
+## Vegan  ------------------------------------
+
+# Bray-Curtis距離行列
+bray_dist <- vegdist(otu_table, method = "bray")
+
+# 主座標分析
+pcoa_res <- cmdscale(bray_dist, eig = TRUE, k = 2)
+pcoa_df <- as.data.frame(pcoa_res$points) # DataFrame化
+colnames(pcoa_df) <- c("PCoA1", "PCoA2")
+
+# MetaDataとのMerge(Sample.Nameで結合)
+pcoa_df$SampleName <- rownames(pcoa_df)
+pcoa_df <- merge(pcoa_df, MetaData, by = "SampleName")
+
+# 固有値ベクトル算出    
+eig <- pcoa_res$eig
+eig <- eig[eig > 0]
+
+# 説明率の算出
+ExplainedVariance <- eig / sum(eig)
+ExplainedVariance <- round(ExplainedVariance * 100, 1)
+
+# PCoAPlots in Bray-Curtis
+ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = dps)) +
+    geom_point(size = 8, alpha = 0.7) +
+    geom_text(aes(label = Sample.Name), vjust = -1.3, size = 4) + 
+    labs(caption = "PCoA with Bray-Curtis") +
+    xlab(paste0("PCoA1 (", ExplainedVariance[1], "%)")) +
+    ylab(paste0("PCoA2 (", ExplainedVariance[2], "%)")) +
+    theme_minimal(base_size = 16) +
+    theme(
+        legend.position = "right",
+        legend.title = element_text(size = 25, face = "bold",  colour = "#E91E63"),
+        legend.text = element_text(size = 25),
+        axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 1),
+        axis.title.y = element_text(size = 25, colour = "#E91E63", hjust = 0.5),
+        axis.text = element_text(size = 30, face = "bold", color = "black"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
+    scale_color_brewer(palette = "Set1")
+
+
+# vegan::betadisper()による群内分散の検定  
+betadisper <- betadisper(bray_dist, group = pcoa_df$dps)
+permutest(betadisper, permutations = 999)
+
+# PERMANOVAによる有意差検定
+adonis2(bray_dist ~ dps, data = pcoa_df, permutations = 999)
+
+
+cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
+
 
 
 # Rarefaction Curve -------------------------
 
-rare <- lapply(rarecurve(as(otu_table(PhyseqData), "matrix"),
+rare <- lapply(rarecurve(as(otu_table(PhyseqData_Fng), "matrix"),
                          step = 100, cex = 0.5, label = FALSE),
                function(x){
                    b <- as.data.frame(x)
@@ -736,6 +1044,62 @@ rare_df <- purrr::map_dfr(rare, function(x) return(data.frame(x)), .id = "sample
 ggplot(rare_df, aes(x = raw_read, y = ASV, color = sample)) +
     geom_line(linewidth = 1) + scale_color_igv() +
     xlab("Reads") + ylab("The number of ASV")
+
+
+
+
+# カスタム関数
+rarecurve_shannon <- function(PhyseqData, depths = seq(1000, 20000, by = 1000), reps = 10) {
+    otu <- as(otu_table(PhyseqData), "matrix")
+    if (taxa_are_rows(PhyseqData)) {
+        otu <- t(otu)
+    }
+    
+    result <- data.frame()
+    samples <- rownames(otu)
+    
+    for (depth in depths) {
+        for (i in 1:reps) {
+            rarefied <- rrarefy(otu, sample = depth)
+            shannon_vals <- diversity(rarefied, index = "shannon")
+            df <- data.frame(Sample = names(shannon_vals),
+                             Depth = depth,
+                             Shannon = shannon_vals,
+                             Rep = i)
+            result <- rbind(result, df)
+        }
+    }
+    
+    return(result)
+}
+
+rare_res <- rarecurve_shannon(PhyseqData_Fng, depths = seq(100, 20100, by = 500), reps = 5)
+
+# geom_text用
+label_df <- rare_res |> 
+    group_by(Sample, Rep) |> 
+    filter(Depth == max(Depth))
+
+
+# RepでLabelが複数つくのが問題
+ggplot(rare_res, aes(x = Depth, y = Shannon, group = interaction(Sample, Rep), color = Sample)) +
+    scale_color_manual(values = c("#1b9e77", "#d95f02", "#7570b3",
+                                  "#e7298a", "#66a61e", "#e6ab02",
+                                  "#a6761d", "#666666", "#8dd3c7")) +
+    geom_line(alpha = 0.5, linewidth = 0.8) +
+    geom_text(data = label_df, aes(label = Sample), hjust = -0.1,
+              vjust = 0.5, size = 5, show.legend = FALSE, alpha = 0.7) +
+    labs(x = "Sequencing Depth (Reads)", y = "Shannon Diversity Index",
+         title = "Rarefaction Curve with Shannon Index") +
+    theme_minimal(base_size = 16) +
+    theme(
+        axis.title.x = element_text(size = 22, colour = "#E91E63", face = "bold"),
+        axis.title.y = element_text(size = 22, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 15, color = "black",face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
+        legend.position = "none")
+
+cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
 
 
 # Nonmetric Multidimensional Scaling --------
@@ -1449,7 +1813,6 @@ FungicideUse_sigtab = FungicideUse_res[which(FungicideUse_res$padj < 0.01), ]
 dim(FungicideUse_sigtab)
 
 
-
 ### Plots ------------------------------
 
 library(ggplot2)
@@ -1588,6 +1951,7 @@ ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum,
 ggsave(filename = "Fng_DESeq2_Family_log10Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
        width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
 
 #### Legend Plots in Phylum level
 
@@ -1729,7 +2093,7 @@ ggsave(filename = "DESeq2_Genus_log2FoldChange_ColorFamily_sigtab_Plots.png", pl
 
 #### Coloring at Family
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, shape = Sign)) +
-    geom_point(size = 10, alpha = 0.6) +
+    geom_point(size = 8, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 5) + 
     scale_color_manual(values = colors_21) +
     theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
@@ -1738,7 +2102,7 @@ ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, 
     xlab("Genus") +
     theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
           axis.title.y = element_text(size = 25, colour = "#E91E63"),
-          axis.text = element_text(size = 18, face = "bold", color = "black"),
+          axis.text = element_text(size = 13, face = "bold", color = "black"),
           strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
           panel.grid.minor = element_blank(),
           legend.position = c(x=0.65, y=0.9),

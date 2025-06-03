@@ -8,10 +8,4 @@ docs/**
 Phyloseq_RawData_Bac_images/**
 /.quarto/
 png/**
-renv/library/
-renv/local/
-renv/cellar/
-renv/lock/
-renv/python/
-renv/sandbox/
-renv/staging/
+

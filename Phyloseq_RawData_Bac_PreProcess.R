@@ -19,6 +19,7 @@ rm(list = ls())
 
 cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
 
+install.packages("styler")
 
 # Prevalence filtering ----------------------
 
@@ -29,6 +30,7 @@ load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq
 prev0 = apply(X = otu_table(PhyseqData),
               MARGIN = ifelse(taxa_are_rows(PhyseqData), yes = 1, no = 2),
               FUN = function(x){sum(x > 0)})
+
 
 ## DataFrameの作成
 prevdf = data.frame(Prevalence = prev0,

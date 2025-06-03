@@ -90,62 +90,16 @@ for (i in ID) {
 
 ps3 = tax_glom(ps2, taxrank = "Genus")
 
+# Abundance value Counts & refseq ------------
 
-# Abundance value transformation ------------
-
-meltphyseq = psmelt(ps3)
-
-meltphyseq_v1 <- meltphyseq |> filter(Phylum == "Pseudomonadota")
-
-# write.csv(meltphyseq_v1, 
-#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/meltphyseq.csv")
-
-orders <- unique(meltphyseq$Order)
-plot_list <- list()
-
-for (order in orders) {
-    filt <- meltphyseq |> filter(Order == order)
-    
-    p <- ggplot(data = filt, mapping = aes(x = dps, y = Abundance)) +
-        # バイオリンプロットの設定
-        geom_violin(aes(fill = dps), alpha = 0.3, position = position_nudge(x = 0.1)) +  # バイオリンを少しずらす
-        # ポイントの設定
-        geom_point(aes(color = Sample.Name), size = 3, alpha = 0.8) +  # ポイントの色をSample.Nameに基づいて変更
-        ylab(paste(order)) +  # y軸ラベルにOrder名を使用
-        scale_y_log10() +  # y軸をログスケール
-        scale_x_continuous(breaks = c(0, 3, 7)) +  # x軸のラベル設定
-        theme_minimal()  # グラフのテーマを設定
-    
-    # プロットをリストに格納
-    plot_list[[order]] <- p
-}
-
-# 最初のプロットを表示
-print(plot_list[[1]])
-
-length(get_taxa_unique(ps2, taxonomic.rank = "Phylum"))
-
-ps_Pseudomonadota <- subset_taxa(ps3, Phylum == "Pseudomonadota")
-plot_bar(ps_Pseudomonadota, fill = "Genus") 
-
-# prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
-# ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
-# write.csv(ExportCSVData, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData.csv",
-#           row.names = TRUE)
-
-# Remove taxa not seen more than 3 times in at least 20% of the samples. This protects against an OTU with small mean & trivially large C.V.
-# filter_taxa(PhyseqData, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
-
-
-# Standardize abundances to the median sequencing depth
-# sample間で異なるリード数(シーケンス深度)を一致させるため
-# total = median(sample_sums(physeqData))
-# standf = function(x, t=total) round(t * (x / sum(x)))
-# physeqData_sd = transform_sample_counts(physeqData, standf)
-
-
-# Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
-# physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
+# 有意な差が認められた分類群の存在量を個別で可視化
+# ASVsの配列情報を取得
+# 全Sampleの内、Countsされた数でFiltering
+# Genus == Bryobacter → Filtering → Sequenceを取得 → Data.frame化
+write.csv(data.frame(Sequence = refseq(PhyseqData)[taxa_names(subset_taxa(PhyseqData, Genus == "Bryobacter"))],
+                     ASV_ID = taxa_names(subset_taxa(PhyseqData, Genus == "Bryobacter")),
+                     stringsAsFactors = FALSE),
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/Bryobacter_sequences.csv", row.names = FALSE)
 
 
 # RelativeAbundunce -------------------------
@@ -1817,6 +1771,7 @@ dim(FungicideUse_sigtab)
 
 library(ggplot2)
 library(scales)
+library(dplyr)
 
 
 ### Phylum AscendingOrder Sort in log2FoldChange 
@@ -1862,9 +1817,26 @@ write.csv(FungicideUse_sigtab,
           file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_FungicideUse_sigtab_no_taxa_filtering.csv",
           row.names = FALSE)
 
+# ASVs-table → sigtab subset
+sigtab_subset_PhyseqData_Fng <- prune_taxa(FungicideUse_sigtab$ASV, PhyseqData_Fng)
+otu_mat <- t(as(otu_table(sigtab_subset_PhyseqData_Fng), Class = "matrix"))
+tax_mat <- as(tax_table(sigtab_subset_PhyseqData_Fng), Class = "matrix")
+otu_table <- cbind(otu_mat, tax_mat)
+
+otu_table[, "Kingdom"] <- gsub("^k__", "", otu_table[, "Kingdom"])
+otu_table[, "Phylum"] <- gsub("^p__", "", otu_table[, "Phylum"])
+otu_table[, "Class"] <- gsub("^c__", "", otu_table[, "Class"])
+otu_table[, "Order"] <- gsub("^o__", "", otu_table[, "Order"])
+otu_table[, "Family"] <- gsub("^f__", "", otu_table[, "Family"])
+otu_table[, "Genus"] <- gsub("^g__", "", otu_table[, "Genus"])
+otu_table[, "Species"] <- gsub("^s__", "", otu_table[, "Species"])
+
+write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_SigtabSubset_otu_table.csv",
+          row.names = TRUE)
 
 
-### ColorPalleteの数を把握
+#### Plots sigtab  --------------------
+# ColorPalleteの数を把握
 unique(FungicideUse_sigtab$Phylum)
 unique(FungicideUse_sigtab$Family)
 unique(FungicideUse_sigtab$Genus)
@@ -1880,10 +1852,6 @@ colors_31 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
                "#3F51B5", "#D32F2F", "#0288D1", "#7B1FA2", "#388E3C", "#FBC02D", "#0288D1",
                "#8BC34A", "#FF5722", "#8E24AA", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", 
                "#FF9800", "#E91E63", "#CDDC39")
-
-
-
-#### Plots sigtab  --------------------
 
 ##### Y is Family ---------------------------
 ###### log2 FoldChange ---------------------
@@ -2256,8 +2224,84 @@ ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", p
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
+# ASV Abundunce Plots： -----------------------------------
+library(ggplot2)
+library(dplyr)
+
+prune_taxa(c("ASV52","ASV102"), PhyseqData_Fng) |> 
+    psmelt() |> 
+    group_by(dps, OTU) |> 
+    summarise(
+        mean_abund = mean(Abundance),
+        sd_abund = sd(Abundance),
+        .groups = "drop") |> 
+    ggplot(aes(x = dps, y = mean_abund, fill = OTU)) +
+    geom_bar(stat = "identity", position = "dodge", width = 0.8) +
+    
+    geom_errorbar(aes(ymin = pmax(mean_abund - sd_abund, 0),
+                      ymax = mean_abund + sd_abund),
+                  position = position_dodge(width = 0.8),
+                  width = 0.1, colour = "gray30") +
+    xlab("Days  Post  FungicideUse") +
+    ylab("ASV 52 & 102  Absolute Abundance") +
+    scale_fill_manual(values = c("#E41A1C", "#377EB8")) +
+    theme(axis.title.x = element_text(size = 30, colour = "#E91E63", vjust = 1),
+          axis.title.y = element_text(size = 30, colour = "#E91E63"),
+          axis.text.x =  element_text(size = 30, face = "bold", color = "black"),
+          axis.text.y = element_text(size = 20, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank())
+
+    ggsave(filename = "Fng_ASV52_102_Absolute_Abundance_dps_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+    
+    
+prune_taxa(c("ASV16", "ASV30", "ASV103"), PhyseqData_Fng) |> 
+    psmelt() |> 
+    group_by(dps, OTU) |> 
+    summarise(
+        mean_abund = mean(Abundance),
+        sd_abund = sd(Abundance),
+        .groups = "drop") |> 
+    ggplot(aes(x = dps, y = mean_abund, fill = OTU)) +
+    geom_bar(stat = "identity", position = "dodge", width = 0.8) +
+    
+    geom_errorbar(aes(ymin = pmax(mean_abund - sd_abund, 0),
+                      ymax = mean_abund + sd_abund),
+                  position = position_dodge(width = 0.8),
+                  width = 0.1, colour = "gray30") +
+    xlab("Days  Post  FungicideUse") +
+    ylab("ASV Absolute Abundance") +
+    scale_fill_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+    theme(axis.title.x = element_text(size = 30, colour = "#E91E63", vjust = 1),
+          axis.title.y = element_text(size = 30, colour = "#E91E63"),
+          axis.text.x =  element_text(size = 30, face = "bold", color = "black"),
+          axis.text.y = element_text(size = 20, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank())
 
 
+
+
+    ggsave(filename = "Fng_ASV52_102_Absolute_Abundance_dps_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+    dev.off()
+
+
+# ggplot(MeltData, aes(x = dps, y = Abundance)) +
+#     geom_jitter(aes(color = SampleName), width = 0.1, size = 2, alpha = 0.6) +
+#     stat_summary(fun = mean, geom = "bar", aes(fill = OTU), 
+#                  alpha = 0.7, width = 0.8) +
+#     stat_summary(fun.data = mean_se, geom = "errorbar", 
+#                  width = 0.1, colour = "gray30") +
+#     facet_wrap(~OTU, scales = "free_y") +
+#     xlab("Days Post Fungicide Use") +
+#     ylab("Absolute Abundance") +
+#     scale_fill_manual(values = c("#E41A1C", "#377EB8"))
 
 
 # venn diagram --------------
@@ -2538,6 +2582,65 @@ sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
 ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) + geom_point(size=6) + 
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
 
+
+
+
+
+# Others ------------------------------------
+
+meltphyseq = psmelt(ps3)
+
+meltphyseq_v1 <- meltphyseq |> filter(Phylum == "Pseudomonadota")
+
+# write.csv(meltphyseq_v1, 
+#           file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/meltphyseq.csv")
+
+orders <- unique(meltphyseq$Order)
+plot_list <- list()
+
+for (order in orders) {
+    filt <- meltphyseq |> filter(Order == order)
+    
+    p <- ggplot(data = filt, mapping = aes(x = dps, y = Abundance)) +
+        # バイオリンプロットの設定
+        geom_violin(aes(fill = dps), alpha = 0.3, position = position_nudge(x = 0.1)) +  # バイオリンを少しずらす
+        # ポイントの設定
+        geom_point(aes(color = Sample.Name), size = 3, alpha = 0.8) +  # ポイントの色をSample.Nameに基づいて変更
+        ylab(paste(order)) +  # y軸ラベルにOrder名を使用
+        scale_y_log10() +  # y軸をログスケール
+        scale_x_continuous(breaks = c(0, 3, 7)) +  # x軸のラベル設定
+        theme_minimal()  # グラフのテーマを設定
+    
+    # プロットをリストに格納
+    plot_list[[order]] <- p
+}
+
+# 最初のプロットを表示
+print(plot_list[[1]])
+
+length(get_taxa_unique(ps2, taxonomic.rank = "Phylum"))
+
+ps_Pseudomonadota <- ÒÒsubset_taxa(ps3, Phylum == "Pseudomonadota")
+plot_bar(ps_Pseudomonadota, fill = "Genus") 
+
+# prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
+# ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
+# write.csv(ExportCSVData, file = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/physeqData_csv/ExportCSVData.csv",
+#           row.names = TRUE)
+
+# Remove taxa not seen more than 3 times in at least 20% of the samples. This protects against an OTU with small mean & trivially large C.V.
+# filter_taxa(PhyseqData, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+
+
+# Standardize abundances to the median sequencing depth
+# sample間で異なるリード数(シーケンス深度)を一致させるため
+# total = median(sample_sums(physeqData))
+# standf = function(x, t=total) round(t * (x / sum(x)))
+# physeqData_sd = transform_sample_counts(physeqData, standf)
+
+
+# Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
+# physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
 
 
 

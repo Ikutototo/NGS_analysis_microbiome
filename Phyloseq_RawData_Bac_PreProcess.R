@@ -358,65 +358,6 @@ write.csv(data.frame(Sequence = refseq(PhyseqData)[taxa_names(subset_taxa(Physeq
 
 
 
-## ASV205： -----------------------------------
-
-colnames(psmelt(PhyseqData))
-class(psmelt(PhyseqData))
-length(psmelt(PhyseqData) |> dplyr::filter(Genus == "Bryobacter"))
-
-PhyseqData |> 
-    psmelt() |>
-    dplyr::filter(Genus == "Bryobacter") |> 
-    write.csv(file = "~/Documents/RStudio/Novogene/250503/export_csv/psmelt_Bryobacter.csv")
-
-
-prune_taxa("ASV205", PhyseqData) |> 
-    psmelt() |> 
-    group_by(dps) |> 
-    summarise(
-        mean_abund = mean(Abundance),
-        sd_abund = sd(Abundance)) |> 
-ggplot(aes(x = dps, y = mean_abund)) +
-    geom_bar(stat = "identity", width = 0.8, fill = "steelblue") +
-    geom_errorbar(aes(ymin = mean_abund - sd_abund, ymax = mean_abund + sd_abund), width = 0.1) +
-    ylab("ASV 205 Bryobacter Abundance") +
-    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
-          axis.text = element_text(size = 16, face = "bold", color = "black"),
-          strip.text = element_text(size = 14, face = "bold.italic", color = "black"),
-          panel.grid.minor = element_blank())
-
-ggsave(filename = "ASV205_Bryobacter_dps_Abundance_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
-dev.off()
-
-
-
-## ASV75： ------------------------------------
-
-prune_taxa("ASV75", PhyseqData) |> 
-    psmelt() |> 
-    group_by(dps) |> 
-    summarise(
-        mean_abund = mean(Abundance),
-        sd_abund = sd(Abundance)) |> 
-    ggplot(aes(x = dps, y = mean_abund)) +
-    geom_bar(stat = "identity", width = 0.8, fill = "steelblue") +
-    geom_errorbar(aes(ymin = pmax(mean_abund - sd_abund, 0),
-                      ymax = mean_abund + sd_abund), width = 0.1) +
-    ylab("ASV 75 Thiobacillus Abundance") +
-    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
-          axis.text = element_text(size = 16, face = "bold", color = "black"),
-          strip.text = element_text(size = 14, face = "bold.italic", color = "black"),
-          panel.grid.minor = element_blank())
-
-ggsave(filename = "ASV75_Thiobacillus_dps_Abundance_Plots.png", plot = last_plot(),
-       width = 2800, height = 2520, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
-
-
 ### Others --------------------------------
 
 
@@ -1996,6 +1937,9 @@ f.mahattan
 
 
 # DESeq2 ------------------------------------
+library(DESeq2)
+library(ggplot2)
+
 ## No Taxa Filtering -------------------------
 
 rank_names(PhyseqData)
@@ -2020,7 +1964,7 @@ FungicideUse_res <- cbind(as(FungicideUse_res, "data.frame"),
 
 write.csv(cbind(as(FungicideUse_res, "data.frame"),
                 as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix")),
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv")
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/Bac_FungicideUse_res_no_taxa_filtering.csv")
 
 
 ### 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
@@ -2076,7 +2020,7 @@ FungicideUse_sigtab <- FungicideUse_sigtab |>
 
 ### sigtabのcsv保存
 write.csv(FungicideUse_sigtab,
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_sigtab_no_taxa_filtering.csv",
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/Bac_FungicideUse_sigtab_no_taxa_filtering.csv",
           row.names = FALSE)
 
 
@@ -2463,7 +2407,37 @@ ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", p
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
+# ASV Abundunce Plots： -----------------------------------
+library(ggplot2)
+library(dplyr)
 
+prune_taxa(c("ASV52","ASV102"), PhyseqData_Fng) |> 
+    psmelt() |> 
+    group_by(dps, OTU) |> 
+    summarise(
+        mean_abund = mean(Abundance),
+        sd_abund = sd(Abundance),
+        .groups = "drop") |> 
+    ggplot(aes(x = dps, y = mean_abund, fill = OTU)) +
+    geom_bar(stat = "identity", position = "dodge", width = 0.8) +
+    
+    geom_errorbar(aes(ymin = pmax(mean_abund - sd_abund, 0),
+                      ymax = mean_abund + sd_abund),
+                  position = position_dodge(width = 0.8),
+                  width = 0.1, colour = "gray30") +
+    xlab("Days  Post  FungicideUse") +
+    ylab("ASV 52 & 102  Absolute Abundance") +
+    scale_fill_manual(values = c("#E41A1C", "#377EB8")) +
+    theme(axis.title.x = element_text(size = 30, colour = "#E91E63", vjust = 1),
+          axis.title.y = element_text(size = 30, colour = "#E91E63"),
+          axis.text.x =  element_text(size = 30, face = "bold", color = "black"),
+          axis.text.y = element_text(size = 20, face = "bold", color = "black"),
+          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+          panel.grid.minor = element_blank())
+
+ggsave(filename = "Fng_ASV52_102_Absolute_Abundance_dps_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
 

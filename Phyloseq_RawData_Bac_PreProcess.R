@@ -1959,13 +1959,13 @@ FungicideUse_dds = DESeq(FungicideUse_dds, test="Wald", fitType="parametric")
 
 FungicideUse_res <- results(FungicideUse_dds, cooksCutoff = FALSE)
 FungicideUse_res <- cbind(as(FungicideUse_res, "data.frame"),
-                          as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix"))
+                          as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix"),
+                          as(t(otu_table(PhyseqData))[rownames(FungicideUse_res), ], "matrix"))
 
-
-write.csv(cbind(as(FungicideUse_res, "data.frame"),
-                as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix")),
+write.csv(FungicideUse_res,
           file = "~/Documents/RStudio/Novogene/250503/export_csv/Bac_FungicideUse_res_no_taxa_filtering.csv")
 
+a <- as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix")
 
 ### 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
 FungicideUse_sigtab = FungicideUse_res[which(FungicideUse_res$padj < 0.01), ] 
@@ -1978,6 +1978,7 @@ dim(FungicideUse_sigtab)
 
 library(ggplot2)
 library(scales)
+library(dplyr)
 
 
 ### Phylum AscendingOrder Sort in log2FoldChange 
@@ -2014,7 +2015,7 @@ FungicideUse_sigtab$value <- 2^FungicideUse_sigtab$log2FoldChange
 #### 行名をASV列として、追加し、順番を変更
 FungicideUse_sigtab$ASV <- rownames(FungicideUse_sigtab)
 FungicideUse_sigtab <- FungicideUse_sigtab |> 
-    select(ASV, log10value, log2FoldChange, value, Sign, everything())
+    dplyr::select(ASV, log10value, log2FoldChange, value, Sign, everything())
 
 
 
@@ -2025,7 +2026,8 @@ write.csv(FungicideUse_sigtab,
 
 
 
-### ColorPalleteの数を把握
+#### Plots sigtab  --------------------
+# ColorPalleteの数を把握
 unique(FungicideUse_sigtab$Phylum)
 unique(FungicideUse_sigtab$Family)
 unique(FungicideUse_sigtab$Genus)
@@ -2041,10 +2043,6 @@ colors_31 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
                "#3F51B5", "#D32F2F", "#0288D1", "#7B1FA2", "#388E3C", "#FBC02D", "#0288D1",
                "#8BC34A", "#FF5722", "#8E24AA", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", 
                "#FF9800", "#E91E63", "#CDDC39")
-
-
-
-#### Plots sigtab  --------------------
 
 ##### Y is Family ---------------------------
 ###### log2 FoldChange ---------------------
@@ -2411,7 +2409,7 @@ ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", p
 library(ggplot2)
 library(dplyr)
 
-prune_taxa(c("ASV52","ASV102"), PhyseqData_Fng) |> 
+prune_taxa(FungicideUse_sigtab$ASV, PhyseqData_Fng) |> 
     psmelt() |> 
     group_by(dps, OTU) |> 
     summarise(
@@ -2426,10 +2424,10 @@ prune_taxa(c("ASV52","ASV102"), PhyseqData_Fng) |>
                   position = position_dodge(width = 0.8),
                   width = 0.1, colour = "gray30") +
     xlab("Days  Post  FungicideUse") +
-    ylab("ASV 52 & 102  Absolute Abundance") +
+    ylab("ASV Absolute Abundance") +
     scale_fill_manual(values = c("#E41A1C", "#377EB8")) +
-    theme(axis.title.x = element_text(size = 30, colour = "#E91E63", vjust = 1),
-          axis.title.y = element_text(size = 30, colour = "#E91E63"),
+    theme(axis.title.x = element_text(size = 10, colour = "#E91E63", vjust = 1),
+          axis.title.y = element_text(size = 10, colour = "#E91E63"),
           axis.text.x =  element_text(size = 30, face = "bold", color = "black"),
           axis.text.y = element_text(size = 20, face = "bold", color = "black"),
           strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
@@ -2440,6 +2438,70 @@ ggsave(filename = "Fng_ASV52_102_Absolute_Abundance_dps_Plots.png", plot = last_
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
+# "Depleted" → Filtering
+prune_taxa(FungicideUse_sigtab$ASV[FungicideUse_sigtab$Sign == "Depleted"], PhyseqData) |> 
+    psmelt() |> 
+    ggplot(aes(x = dps, y = Abundance)) +
+    geom_jitter(aes(color = Sample.Name), width = 0.1, size = 2, alpha = 0.6) +
+    stat_summary(fun = mean, geom = "bar", aes(fill = OTU),
+                 alpha = 0.7, width = 0.8) +
+    stat_summary(fun.data = mean_se, geom = "errorbar",
+                 width = 0.1, colour = "gray30") +
+    facet_wrap(~OTU, scales = "free_y") +
+    xlab("Days Post Fungicide Use") +
+    ylab("Absolute Abundance") +
+    labs(caption = "ASVs with statistically significant decreases in abundance in DESeq2") +
+    theme(axis.title.x = element_text(size = 32, colour = "#E91E63", vjust = 1),
+          axis.title.y = element_text(size = 32, colour = "#E91E63"),
+          axis.text.x =  element_text(size = 12, face = "bold", color = "black"),
+          axis.text.y = element_text(size = 12, face = "bold", color = "black"),
+          strip.text = element_text(size = 14, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          plot.caption = element_text(size = 15, color = "gray20"),
+          legend.position = "none")
+    
+ggsave(filename = "Sigtab$ASVs_Depleted_Absolute_Abundance_dps_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+# "Enriched" → Filtering
+prune_taxa(FungicideUse_sigtab$ASV[FungicideUse_sigtab$Sign == "Enriched"], PhyseqData) |> 
+    psmelt() |> 
+    ggplot(aes(x = dps, y = Abundance)) +
+    geom_jitter(aes(color = Sample.Name), width = 0.1, size = 2, alpha = 0.6) +
+    stat_summary(fun = mean, geom = "bar", aes(fill = OTU),
+                 alpha = 0.7, width = 0.8) +
+    stat_summary(fun.data = mean_se, geom = "errorbar",
+                 width = 0.1, colour = "gray30") +
+    facet_wrap(~OTU, scales = "free_y") +
+    xlab("Days Post Fungicide Use") +
+    ylab("Absolute Abundance") +
+    labs(caption = "ASVs with statistically significant increased abundance in DESeq2") +
+    theme(axis.title.x = element_text(size = 32, colour = "#E91E63", vjust = 1),
+          axis.title.y = element_text(size = 32, colour = "#E91E63"),
+          axis.text.x =  element_text(size = 12, face = "bold", color = "black"),
+          axis.text.y = element_text(size = 12, face = "bold", color = "black"),
+          strip.text = element_text(size = 14, face = "bold", color = "black"),
+          panel.grid.minor = element_blank(),
+          plot.caption = element_text(size = 15, color = "gray20"),
+          legend.position = "none")
+
+ggsave(filename = "Sigtab$ASVs_Enriched_Absolute_Abundance_dps_Plots.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+
+
+
+## sigtab$ASV → prune_taxa(PhyseqData) -------
+sigtab_PhyseqData <- prune_taxa(FungicideUse_sigtab$ASV, PhyseqData)
+otu_mat <- t(as(otu_table(sigtab_PhyseqData), Class = "matrix"))
+tax_mat <- as(tax_table(sigtab_PhyseqData), Class = "matrix")
+otu_table <- cbind(otu_mat, tax_mat)
+write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab_otu_table.csv",
+          row.names = TRUE)
 
 # venn diagram --------------
 

@@ -1,40 +1,5 @@
 ---
-title: "DADA2"
-author: "saito ikuto"
-date: now
-date-format: "YYYY/MM/DD"
-format: 
- html:
-    grid: 
-      body-width: 1500px
-    code-fold: false
-    ode-tools: true
-    code-copy: true   
-    toc: true
-    toc-expand: true
-    toc-location: right
-    toc-depth: 3
-    number-sections: true
-    embed-resources: false
-    highlight-style: atom-one
-    theme: yeti
-    css: style.css
-    fig-align: center      
-    fig-width: 12
-    fig-height: 8
-    dpi: 150
-    fig-format: png  
-    fig-cap-location: bottom
-    smooth-scroll: true 
-    warning: false 
-    font-family: "Arial"
-    title-block-banner: true
- pdf:
-    toc: true
-    number-sections: true
-    colorlinks: true
-    documentclass: scrartcl
-    papersize: letter
+title: "DADA2_RawData_Fungi"
 ---
 
 # Chunk Options & SetDirectory
@@ -44,13 +9,11 @@ format:
 #| include: true
 
 knitr::opts_chunk$set(echo = TRUE)
-# MacBookAir or ProでPATH(My drive or マイドライブ)が異なるため注意が必要
-knitr::opts_knit$set(
-    root.dir = "~/Documents/RStudio/Novogene/Data/250331")
+knitr::opts_knit$set(root.dir = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
 ```
 
-# PackageList & Load RData
+# Load RData & Plots
 
 ```{r}
 #| message: false 
@@ -64,11 +27,9 @@ library(ShortRead)
 library(crayon)
 
 
-# DADA2_??.Rで実装し、保存したRDataをload
-
-
-## BeforeFiltering_plotQualityProfile() 
-load("~/Documents/RStudio/Novogene/Data/250331/RData/PlotQC/Fng_PlotQC_BEFORE_Data.RData")
+# DADA2_RawData_Fng.Rで実装 → 保存したRDataをloadし、Plots
+# BeforeFiltering_plotQualityProfile() 
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Plot/Fng_PlotQC_BEFORE_Data.RData")
 
 readfnFs_lengths_summary
 PlotQC_BF_RData_For
@@ -76,8 +37,8 @@ PlotQC_BF_RData_For
 readfnRs_lengths_summary
 PlotQC_BF_RData_Rev
 
-## AfterFiltering_plotQualityProfile() 
-load("~/Documents/RStudio/Novogene/Data/250331/RData/PlotQC/Fng_PlotQC_Filt_Data.RData")
+# AfterFiltering_plotQualityProfile() 
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Plot/Fng_PlotQC_Filt_Data.RData")
 
 readfiltFs_lengths_summary
 PlotQC_AF_RData_For
@@ -86,8 +47,8 @@ readfiltRs_lengths_summary
 PlotQC_AF_RData_Rev
 
 
-## Error Rates & dada2 
-load("~/Documents/RStudio/Novogene/Data/250331/RData/PlotQC/Fng_dada2_ErrorRateData.RData")
+# Error Rates & dada2 
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Output/Fng_dada2_ErrorRateData.RData")
 
 # errF
 dadaFs
@@ -98,8 +59,8 @@ dadaRs
 plotErrors(errR, nominalQ=TRUE)
 
 
-## MergeData
-load("~/Documents/RStudio/Novogene/Data/250331/RData/PlotQC/Fng_MergeData.RData")
+# MergeData
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Input/Fng_MergeData.RData")
 head(mergers[[1]])
 
 dim(seqtab)
@@ -120,17 +81,17 @@ sum(seqtab.nochim)/sum(seqtab)
 track
 
 
-## TaxaData
-#load("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草 2/NGS_consignment/Novogene/Data/250331/RData/PlotQC/Fng_TaxaData.RData")
-
-
 
 ```
 
 ::: callout-warning
 ## Novogene 16s amplicom sequence
 
-[**Novogene 委託 16s amplicom seqence → データ解析× の場合、配列のQC + Filtering + Mergeまでは実装してくれるが、属・種のAnnotationから自力で実装する必要がある**]{.underline}
+**Novogene 委託 16s amplicom seqence → データ解析× の場合、Demultiplexing(Adapter・Primer) + 配列のQC + Filtering + Mergeまでは実装してくれるが、属・種のAnnotationから自力で実装する必要がある**
+
+→ 正直、QC(自分でパラメーター指定(末端でQualityが下がっていないか確認)) + Filtering (末端のサイズ設定 + 許容エラー値の設定)
+
+特に、Annotation(分類群の割り当て)に関しては、数ヶ月単位で、ReferenceDataがUpdateされていくため、自身でReferenceDataを選び、dada2::assignTaxonomy()をする方が良いに決まってる (Novogene解析だと、古いReferenceDataを使っているため)
 
 The DADA2 method (Callahan et al., 2016) is mainly used for noise reduction.
 
@@ -161,7 +122,9 @@ Compared with OTUs, ASVs improve the accuracy, comprehensiveness, and repeatabil
 #| eval: false
 #| Include: false
 
+# Rではなく、Terminal (CLI上でのコマンド)で実施
 # *fastq.gzのファイル名一括変更
+
 cd ~??? 
 for file in *_1.fastq.gz
 do
@@ -234,6 +197,8 @@ mv batch_fastp.sh samples.txt script/
 #| eval: false
 
 
+# Rではなく、Terminal (CLI上でのコマンド)で実施
+
 mkdir -p fastqc_results
 fastqc *fastqc.gz -o fastqc_results -t 8
 
@@ -303,7 +268,6 @@ multiqc .
 ```{r}
 #| label: PlotQC_BEFORE
 #| eval: false
-#| Include: false
 
 
 fnFs <- sort(list.files(path, pattern="_1.fastq", full.names = TRUE))
@@ -321,7 +285,6 @@ save(PlotQC_BF_RData_For, PlotQC_BF_RData_Rev, file = "./RData/PlotQC/Fng_PlotQC
 ```{r}
 #| label: Check Filtering Parameter
 #| eval: false
-#| Include: false
 
 
 readfnFs_lengths_summary <- lapply(fnFs, function(file) {
@@ -349,7 +312,6 @@ print(head(read_lengths_summary, 15))
 ```{r}
 #| label: Filter & Trim
 #| eval: false
-#| Include: false
 
 
 FiltData <- filterAndTrim(fwd = fnFs, filt = filtFs, rev = fnRs, 
@@ -470,8 +432,6 @@ The **red line shows the scaled proportion of reads that extend to at least that
 #| eval: false
 #| Include: false
 #| code-fold: false
-#| fig-width: 12
-#| fig-height: 8
 
 # errF <- learnErrors(filtFs, multithread=TRUE)
 # errR <- learnErrors(filtRs, multithread=TRUE)
@@ -542,10 +502,6 @@ head(mergers[[1]])
 By default, merged sequences are only output if the forward and reverse reads overlap by at [**least 12 bases**]{.underline}, and are identical to each other in the overlap region (but these conditions can be changed via function arguments).
 
 Most of your **reads** should successfully merge. If that is not the case upstream parameters may need to be revisited: Did you trim away the overlap between your reads?
-
-[**254 bpが最も多いはず**]{.underline}
-
-![V4領域増幅のながれとペアエンドリード](png/16S%20V4領域.png)
 :::
 
 # Construct sequence table
@@ -640,17 +596,27 @@ track
 
 ITS2領域の代表配列に対するAnnotationとして、[UNITE](https://unite.ut.ee/repository.php)が使用される
 
+・ITS領域を用いた真菌群集解析\
+・種レベルでの真菌同定が重要\
+・真菌の多様性研究に特化した解析
+
+他にも、[DADA2-formatted reference databases](https://benjjneb.github.io/dada2/training.html)を参照
+
 General FASTA release (download)\
 This release consists of a single FASTA file: the RepS/RefS of all SHs, adopting the dynamically use of clustering thresholds whenever available. The format of the FASTA header is:
 
-以下の項目を記録し、再現性を担保すること
+以下の項目を参考にして参照配列データを決定し、再現性を担保すること
 
 1.  Version
 2.  Taxon group
 3.  No of RefS
 4.  No of RepS
 
-[sh_general_release_19.02.2025.tgz](https://doi.plutof.ut.ee/doi/10.15156/BIO/3301229) → 論文にする際は、引用すること
+250401では、以下を採用 ([sh_general_release_19.02.2025.tgz](https://doi.plutof.ut.ee/doi/10.15156/BIO/3301229) ) → 論文にする際は、引用すること
+
+tgzを解凍すると、\*\_dynamic\_\*とファイル名になる
+
+[**sh_general_release_dynamic_s_19.02.2025.fasta**]{.underline} **→ [*Clarireedia* 属は参照配列として搭載されている]{.underline}**
 :::
 
 ```{r}
@@ -658,25 +624,21 @@ This release consists of a single FASTA file: the RepS/RefS of all SHs, adopting
 #| eval: false
 #| Include: false
 
-# SILVA database (v.138) 
-# silvafileのPATHに注意(マイドライブ or My drive)
+
+# sh_general_release_dynamic_19.02.2025.fasta
 system.time(taxa <- assignTaxonomy(seqtab.nochim,
-                                   refFasta = "/Users/saitoikuto/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/マイドライブ/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/silva_nr99_v138.2_toGenus_trainset.fa.gz",
+                                   refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/sh_general_release_19.02.2025/sh_general_release_dynamic_19.02.2025.fasta",
                                    multithread=TRUE))
 
-system.time(taxa_species <- assignTaxonomy(seqtab.nochim,
-                                   refFasta = "/Users/saitoikuto/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/マイドライブ/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/silva_nr99_v138.2_toSpecies_trainset.fa.gz",
+# sh_general_release_dynamic_s_19.02.2025.fasta
+system.time(taxa <- assignTaxonomy(seqtab.nochim,
+                                   refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/sh_general_release_19.02.2025/sh_general_release_dynamic_s_19.02.2025.fasta",
                                    multithread=TRUE))
+
 
 taxa.print <- taxa # Removing sequence rownames for display only
 rownames(taxa.print) <- NULL
 head(taxa.print, 20)
-
-taxa.print_species <- taxa_species # Removing sequence rownames for display only
-rownames(taxa.print_species) <- NULL
-head(taxa.print_species, 20)
-
-
 
 ```
 
@@ -744,7 +706,7 @@ multiqc .
 
 ```{r}
 #| label: SessionInfo
-#| eval: false
+#| eval: TRUE
 #| Include: false
 
 sessionInfo()

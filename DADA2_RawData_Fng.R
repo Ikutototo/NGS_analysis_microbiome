@@ -1,6 +1,11 @@
 # Setting -----------------------------------
-setwd("~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草 2/NGS_consignment/Novogene/Data/250331")
-setwd("~/Documents/RStudio/Novogene/Data/250427/RawData_Fungi")
+setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
+
+ls()
+rm(list = ls())
+dev.off()
+
+
 dir <- getwd()
 
 # .fastq.gz fileを格納するdirectory
@@ -179,14 +184,15 @@ save(mergers, seqtab, seqtab2, seqtab.nochim, track,
 
 # By applying QIIME2's classify-sklearn algorithm (Bokulich et al., 2018; Bolyen et al., 2019), 
 # a pre-trained Naive Bayes classifier is used for species annotation of each ASV. 
-# Annotation database of the project is Unite v9.0. [Nocogene Reports]
+# Annotation database of the project is Unite v9.0. [Novogene Reports]
 
 rm(list = ls())
 load("~/Documents/RStudio/Novogene/Data/250427/RData/Fungi_fastp/Fng_MergeData.RData")
 
 
-# Unite database (v.10) 
 
+## Taxonomic assignment (Genus) --------------
+# Unite database (v.10) 
 system.time(taxa <- assignTaxonomy(seqtab.nochim,
                                    refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/sh_general_release_19.02.2025/sh_general_release_dynamic_19.02.2025.fasta",
                                    multithread=TRUE))
@@ -195,21 +201,55 @@ taxa.print <- taxa # Removing sequence rownames for display only
 rownames(taxa.print) <- NULL
 head(taxa.print, 20)
 
-
 # system.time(taxa <- assignTaxonomy(seqtab.nochim,
 #                                    refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/sh_general_release_s_19.02.2025.tgz",
 #                                    multithread=TRUE))
 
 
-
 save(taxa,
      file = "~/Documents/RStudio/Novogene/Data/250427/RData/Fungi_fastp/Fng_Taxa.RData")
 
-
-
-
-
 cat(crayon::bgGreen("Processing of plotqualityprofile is complete."))
+
+
+## Species assignment ------------------------
+
+# As of version 1.5.2(dada2), assignSpecies has been reimplemented to be much faster, 
+# and it now easily scales to handle even very large sets of sequences.
+
+
+# By default the assignSpecies method only returns species assignments if there is no ambiguity, 
+# i.e. all exact matches were to the same species. 
+# However, given that we are generally working with fragments of the 16S gene, 
+# it is common that exact matches are made to multiple sequences that are identical over the sequenced region. 
+# This is often still useful information, so to have all sequence hits returned the returnMultiple=TRUE argument can be passed to the assignSpecies function:
+
+taxa <- assignSpecies(seqtab.nochim,
+                      refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/???.fa.gz",     # RDPトレーニングセットやSILVA形式など
+                      outputBootstraps = TRUE, # BootstrappingScore
+                      multithread = TRUE,
+                      allowMultiple = TRUE
+)
+
+# If using this workflow on your own data:
+# In many environments, few sequences will be assigned to species level. 
+# That is OK! Reference databases are incomplete, 
+# and species assignment is at the limit of what is possible from 16S amplicon data.
+#  Remember, even if the sequenced organism is in the reference database, 
+#  if another species shares the same 16S gene sequence it is impossible to unambiguously assign that sequence to species-level.
+
+
+
+
+## Kingom to Species -------------------------
+# taxa <- assignTaxonomy(seqtab.nochim,
+#                        refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/sh_general_release_19.02.2025/sh_general_release_dynamic_19.02.2025.fasta",
+#                        multithread=TRUE)
+
+# assignTaxonomy()されたオブジェクトに、Speciesを割り当てる
+taxa_species_plus <- addSpecies(taxtab = taxa, refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/silva_nr99_v138.2_toSpecies_trainset.fa.gz",
+                                verbose = TRUE, allowMultiple = TRUE)
+
 
 
 # Blastn ------------------------------------
@@ -226,5 +266,253 @@ output_file="blast_results.txt"
 # blastn -query $input_file -db $db -out $output_file -outfmt 6 -evalue 1e-5 -max_target_seqs 10
 
 echo "BLAST search completed. Results saved to $output_file"
+
+
+# Inspects AmpliconDatabase --------------------
+library(DECIPHER)
+# General FASTA release (download) [https://unite.ut.ee/repository.php]
+
+# UNITEによるAnnotationが適している場合
+# ITS領域を用いた真菌群集解析
+# 種レベルでの真菌同定が重要
+# 真菌の多様性研究に特化した解析
+
+## sh_general_release_19.02.2025 -------------
+
+# This release consists of a single FASTA file: the RepS/RefS of all SHs, adopting the dynamically use of clustering thresholds whenever available. The format of the FASTA header is:
+#     
+# Claroideoglomus_sp|AM076567|SH1229972.10FU|reps|k__Fungi;p__Glomeromycota;c__Glomeromycetes;o__Entrophosporales;f__Entrophosporaceae;g__Claroideoglomus;s__Claroideoglomus_sp
+# This is the file we recommend for local BLAST searches against the SHs.
+
+
+# No of RepSが少ないバージョン
+# SilvaDatabaseのPATHを指定する
+Fungi_dna <- readDNAStringSet("~/Documents/RStudio/Novogene/250503/taxa_reference/sh_general_release_dynamic_19.02.2025.fasta")
+str(Fungi_dna)
+
+# 分類情報の抽出
+names(Fungi_dna)[1:3]
+Fungi_dna@ranges@NAMES
+
+as.character(Fungi_dna)[1:3]
+
+split_all <- strsplit(names(Fungi_dna), "\\|")
+taxa <- lapply(split_all, function(x) strsplit(tail(x, 1), ";")[[1]])
+
+# メタ情報（最初の4つ）と分類情報（k__〜s__）を連結
+full_info <- mapply(function(meta, tax) {
+    length(tax) <- 7  # s__まで不足ならNAで補完
+    c(meta[1:4], tax) # names(Fungi_dna)のMetaDataが1~4列存在
+}, split_all, taxa)
+
+df <- as.data.frame(t(full_info), stringsAsFactors = FALSE)
+
+colnames(df) <- c("SpeciesName", "Accession", "SH_ID", "Source",
+                  "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+head(df)
+
+# 配列データ列を追加
+df$Sequence <- as.character(Fungi_dna)
+df$Length <- nchar(df$Sequence)
+
+str(df)
+
+
+write.csv(x = df,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/SilvaDatabase/sh_general_release_dynamic_19.02.2025.fasta.csv", row.names = TRUE)
+
+
+## sh_general_release_s_19.02.2025 -------------
+
+
+# No of RepSが多いバージョン
+# SilvaDatabaseのPATHを指定する (dev = developments??)
+Fungi_dna <- readDNAStringSet("~/Documents/RStudio/Novogene/250503/taxa_reference/sh_general_release_s_19.02.2025/sh_general_release_dynamic_s_19.02.2025.fasta")
+str(Fungi_dna)
+
+# 分類情報の抽出
+names(Fungi_dna)[1:3]
+# Fungi_dna@ranges@NAMES
+
+as.character(Fungi_dna)[1:3]
+
+
+split_all <- strsplit(names(Fungi_dna), "\\|")
+taxa <- lapply(split_all, function(x) strsplit(tail(x, 1), ";")[[1]])
+
+# メタ情報（最初の4つ）と分類情報（k__〜s__）を連結
+full_info <- mapply(function(meta, tax) {
+    length(tax) <- 7  # s__まで不足ならNAで補完
+    c(meta[1:4], tax) # names(Fungi_dna)のMetaDataが1~4列存在
+}, split_all, taxa)
+
+df <- as.data.frame(t(full_info), stringsAsFactors = FALSE)
+
+colnames(df) <- c("SpeciesName", "Accession", "SH_ID", "Source",
+                  "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+head(df)
+
+# 配列データ列を追加
+df$Sequence <- as.character(Fungi_dna)
+df$Length <- nchar(df$Sequence)
+
+str(df)
+
+
+write.csv(x = df,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/SilvaDatabase/sh_general_release_dynamic_s_19.02.2025.fasta.csv", row.names = TRUE)
+
+
+
+## SILVA_SSUfungi_nr99_v138_2_toGenus --------
+
+# Silva taxonomic training data formatted for DADA2 (Silva version 138.2)
+# https://zenodo.org/records/14169026
+# 
+
+# SilvaDatabaseのPATHを指定する
+Fungi_dna <- readDNAStringSet("~/Documents/RStudio/Novogene/250503/taxa_reference/SILVA_SSUfungi_nr99_v138_2_toGenus_trainset.fasta")
+str(Fungi_dna)
+
+# 分類情報の抽出
+names(Fungi_dna)[1:3]
+Fungi_dna@ranges@NAMES
+
+# 配列情報
+as.character(Fungi_dna)[1:3]
+
+# ;でsplit
+split_all <- strsplit(names(Fungi_dna), "\\;")
+split_all[1:3]
+
+
+max_levels <- max(sapply(split_all, length))
+# 欠損値をNAで埋める
+split_padded <- lapply(split_all, function(x) {
+    c(x, rep(NA, max_levels - length(x)))
+})
+
+df <- as.data.frame(do.call(rbind, split_padded), stringsAsFactors = FALSE)
+
+colnames(df) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+head(df)
+
+# 配列データ列を追加
+df$Sequence <- as.character(Fungi_dna)
+df$Length <- nchar(df$Sequence)
+
+str(df)
+
+
+write.csv(x = df,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/SilvaDatabase/SILVA_SSUfungi_nr99_v138_2_toGenus_trainset.fasta.csv", row.names = TRUE)
+
+
+## SILVA_SSUfungi_nr99_v138_2_toSpecies_trainset.fasta --------
+
+# Silva taxonomic training data formatted for DADA2 (Silva version 138.2)
+# https://zenodo.org/records/14169026
+# 
+
+# SilvaDatabaseのPATHを指定する
+Fungi_dna <- readDNAStringSet("~/Documents/RStudio/Novogene/250503/taxa_reference/SILVA_SSUfungi_nr99_v138_2_toSpecies_trainset.fasta")
+str(Fungi_dna)
+
+# 分類情報の抽出
+names(Fungi_dna)[1:3]
+# Fungi_dna@ranges@NAMES
+
+# 配列情報
+as.character(Fungi_dna)[1:3]
+
+# ;でsplit
+split_all <- strsplit(names(Fungi_dna), "\\;")
+split_all[1:3]
+
+
+max_levels <- max(sapply(split_all, length))
+# 欠損値をNAで埋める
+split_padded <- lapply(split_all, function(x) {
+    c(x, rep(NA, max_levels - length(x)))
+})
+
+df <- as.data.frame(do.call(rbind, split_padded), stringsAsFactors = FALSE)
+
+colnames(df) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+head(df)
+
+# 配列データ列を追加
+df$Sequence <- as.character(Fungi_dna)
+df$Length <- nchar(df$Sequence)
+
+str(df)
+
+
+write.csv(x = df,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/SilvaDatabase/SILVA_SSUfungi_nr99_v138_2_toSpecies_trainset.fasta.csv", row.names = TRUE)
+# 7908	Fungi	Ascomycota	Leotiomycetes	Helotiales	Sclerotiniaceae	Sclerotinia	homoeocarpa	
+# CCTGGTTGATTCTGCCAGTAGTCATATGCTTGTCTCAAAGATTAAGCCATGCATGTCTAAGTATAAGCAACTATACTGTGAAACTGCGAATGGCTCATTAAATCAGTTATCGTTTATTTGATAGTACCTTACTACATGGATAACCGTGGTAATTCTAGAGCTAATACATGCTAAAAACCTCGACTTCGGAAGGGGTGTGTTTATTAGATAAAAAACCAATGCCCTTCGGGGCTCCCTGGTGATTCATAATAACCTAACGAATCGCATGGCCTTGTGCCGGCGATGGTTCATTCAAATTTCTGCCCTATCAACTTTCGATGGTAGGATAGTGGCCTACCATGGTTTCAACGGGTAACGGGGAATTAGGGTTCTATTCCGGAGAAGGAGCCTGAGAAACGGCTACTACATCCAAGGAAGGCAGCAGGCGCGCAAATTACCCAATCCCGACACGGGGAGGTAGTGACAATAAATACTGATACAGGGCTCTTTTGAGTCTTGTAATTGGAATGAGTACAATTTAAATCCCTTAACGAGGAACAATTGGAGGGCAAGTCTGGTGCCAGCAGCCGCGGTAATTCCAGCTCCAATAGCGTATATTAAAGTTGTTGCAGTTAAAAAGCTCGTAGTTGAACCTTGGGCCTGGCTGACCGGTCCGCCTCACCGCGTGCACTGGTTCGGCCGGGCCTTTCCTTCTGGGGAGCCGCATGCCCTTCACTGGGTGTGTCGGGGAACCAGGACTTTTACTTTGAAAAAATTAGAGTGTTCAAAGCAGGCCTATGCTCGAATACATTAGCATGGAATAATAGAATAGGACGTGTGGTTCTATTTTGTTGGTTTCTAGGACCGCCGTAATGATTAATAGGGATAGTCGGGGGCATCAGTATTCAATTGTCAGAGGTGAAATTCTTGGATTTATTGAAGACTAACTACTGCGAAAGCATTTGCCAAGGATGTTTTCATTAATCAGTGAACGAAAGTTAGGGGATCGAAGACGATCAGATACCGTCGTAGTCTTAACCATAAACTATGCCGACTAGGGATCGGGCGATGTTATCTTTTTGACTCGCTCGGCACCTCACGAGAAATCAAAGTTTTTGGGTTCTGGGGGGAGTATGGTCGCAAGGCTGAAACTTAAAGAAATTGACGGAAAGGCACCACCAGGCGTGGAGCCTGCGGCTTAATTTGACTCAACACGGGGAAACTCACCAGGTTAACCACGGTTGTTACGACCTCTGGGCCTGGAAAAGAAGGGGGGTGGCCCACCTCTCTCTAGTGCTTGTCTTTGTCTGTGTGGGGAAGTCCCCTATTTTGGGCACAGACGCTCCGTAGCGGGAGCGTGACAGGTGCAACACCAGCTGGAACAGAAGACGCCTCCGTTACATGTAACGAAGCCAATTCTGTGGCGAGCCTGGGTCACGCCAGGCCGTCGCAACGCGCGCAAAGCGGTGGGTTCACTGAATGCAGTGGGCTTAAGGTACGTGCTAATCCCGCGAGAAATCGCGCCGCGTGAACAAGGTCCAAAAGCCAAAGTCACGCGGGCCTATCATCTGATAGGCGGTATTTGCGGGGAGTGCCCCAGCACCCTCTCTCGATGGAGGGATGATGCGGGGGGGCTCCTCGACATGCCAGACACAATAAGGATTGACAGATTGAGAGCTCTTTCTTGATTTTGTGGGTGGTGGTGCATGGCCGTTCTTAGTTGGTGGAGTGATTTGTCTGCTTAATTGCGATAACGAACGAGACCTTAACCTGCTAAATAGCCAGGCTAGCTTTGGCTGGTCGCCGGCTTCTTAGAGGGACTATCGGCTCAAGCCGATGGAAGTTTGAGGCAATAACAGGTCTGTGATGCCCTTAGATGTTCTGGGCCGCACGCGCGCTACACTGACAGAGCCAACGAGTTCATCTCCTTGACCGAAAGGTCTGGGTAATCTTGTTAAACTCTGTCGTGCTGGGGATAGAGCATTGCAATTATTGCTCTTCAACGAGGAATGCCTAGTAAGCGCAAGTCATCAGCTTGCGTTGATTACGTCCCTGCCTTTTGTACACACCGCCCGTCGCTACTACCGATTGAATGGCTAAGTGAGGCTTTCGGACTGGCCTAGGGAGGGTGGCAACACCCACCCAGGGCCGGAAAGTTGTCCAAACTTGGTCATTTAGAGGAAGTAAAAGTCGTAACAAGGTTTCCGTAGGTGAACCTGCGGAAG
+# 2204
+
+## Filtering_Taxa ----------------------------
+# 特定の分類群を指定して、検索
+id_Ascomycota <- grep("p__Ascomycota", names(Fungi_dna))
+Ascomycota_dna <- Fungi_dna[id_Ascomycota]
+length(Ascomycota_dna)
+names(Ascomycota_dna)[1:5]
+
+
+write.csv(x = Ascomycota_dna@ranges@NAMES,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/SilvaDatabase/id_Ascomycota.csv", row.names = TRUE)
+
+
+## FastqData Alignments ---------------------------------
+library(Biostrings)
+
+# Query配列をDNAStringとして定義
+query_seq <- DNAString("GAAATGCGATACGTAATGTGAATTGCAAATTCAGTGAATCATCGAGTCTTTGAACGCACATTGCGCCCCCTGGTATTCCGGGGGGCATGCCTGTCCGAGCGTCATTGCTGCCCTCAAGCCCGGCTTGTGTGTTGGGCCCCGTCCTCCGATTCCGGGGGACGGGCCCGAAAGGCAGCGGCGGCACCGCGTCCGGTCCTCGAGCGTATGGGGCTTTGTCACCCGCTCTGTAGGCCCGGCCGGCGCTTGCCGATCAACCCAAATTTTTATCCAGGTTGACCTCGGATCAGGTAGGGATACCCGCTGAACTTAA")
+
+# Fungi_dna との局所アラインメントをとる
+alignments <- vmatchPattern(query_seq, Fungi_dna, max.mismatch=10)
+
+hit_names <- names(Fungi_dna)[elementNROWS(alignments) > 0]
+
+taxonomy_hits <- sub(".*\\|refs\\|", "", hit_names)
+taxonomy_hits <- sub("\\|.*", "", taxonomy_hits)
+taxonomy_hits
+
+## Phyloseq Object Sequence ------------------
+
+ls()
+rm(list = ls())
+dev.off()
+
+library(phyloseq)
+library(Biostrings)
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Input/PhyseqData_Fng.RData")
+str(PhyseqData_Fng)
+
+
+tax_table <- as.data.frame(tax_table(PhyseqData_Fng))
+head(tax_table)
+
+# DNAStringSet Objects from Phyloseq Objects
+seqs <- refseq(PhyseqData_Fng)
+head(names(seqs))
+
+# Save as Fasta
+writeXStringSet(seqs, filepath = "Seqence_PhyseqData_Fng.fasta")
+
+# 配列データを列に追加
+tax_table$Sequence <- as.character(seqs[rownames(tax_table)])
+tax_table$Length <- nchar(as.character(seqs[rownames(tax_table)]))
+
+otu_table <- as.data.frame(t(otu_table(PhyseqData_Fng)))
+otu_tax_table <- cbind(otu_table, tax_table)
+
+write.csv(x = otu_tax_table,
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/ASV_Sequence.csv", row.names = TRUE)
+
+
 
 

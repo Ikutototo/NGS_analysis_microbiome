@@ -324,7 +324,6 @@ write.csv(x = df,
 
 ## sh_general_release_s_19.02.2025 -------------
 
-
 # No of RepSが多いバージョン
 # SilvaDatabaseのPATHを指定する (dev = developments??)
 Fungi_dna <- readDNAStringSet("~/Documents/RStudio/Novogene/250503/taxa_reference/sh_general_release_s_19.02.2025/sh_general_release_dynamic_s_19.02.2025.fasta")
@@ -482,10 +481,11 @@ taxonomy_hits <- sub("\\|.*", "", taxonomy_hits)
 taxonomy_hits
 
 ## Phyloseq Object Sequence ------------------
+# ASV + Taxa + Sequence → csv
 
 ls()
 rm(list = ls())
-dev.off()
+# dev.off()
 
 library(phyloseq)
 library(Biostrings)
@@ -511,7 +511,7 @@ otu_table <- as.data.frame(t(otu_table(PhyseqData_Fng)))
 otu_tax_table <- cbind(otu_table, tax_table)
 
 write.csv(x = otu_tax_table,
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/ASV_Sequence.csv", row.names = TRUE)
+          file = "~/Documents/RStudio/Novogene/250503/export_csv/Fungi_ASV_Sequence.csv", row.names = TRUE)
 
 
 

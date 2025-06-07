@@ -1,5 +1,10 @@
 # Setting -----------------------------------
 setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
+
+ls()
+rm(list = ls())
+dev.off()
+
 dir <- getwd()
 
 # .fastq.gz fileを格納するdirectory
@@ -7,12 +12,12 @@ dir <- getwd()
 path <- paste(dir, "RawData_Bacteria", sep = "/")
 list.files(path = path, full.names = TRUE)
 
-lib <- c("dada2", "ggplot2", "dplyr", "Biostrings", "phyloseq", "ShortRead", "crayon")
-for (i in lib) {
-    print(i)
-    print(packageVersion(i))
-    library(i, quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE, character.only = TRUE)
-}
+# lib <- c("dada2", "ggplot2", "dplyr", "Biostrings", "phyloseq", "ShortRead", "crayon")
+# for (i in lib) {
+#     print(i)
+#     print(packageVersion(i))
+#     library(i, quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE, character.only = TRUE)
+# }
 
 # PlotQualityProfile[BEFORE] ------------------------
 
@@ -50,10 +55,12 @@ print(head(readfnFs_lengths_summary, 10))
 
 save(PlotQC_BF_RData_For, PlotQC_BF_RData_Rev,
     readfnRs_lengths_summary, readfnFs_lengths_summary,
-    file = "./RData/PlotQC/PlotQC_BEFORE_Data.RData"
+    file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/PlotQC/PlotQC_BEFORE_Data.RData"
 )
 
 # PlotQualityProfile[AFTER] -----------------
+
+# 重要：下流のすべての解析に影響があるので、慎重に！！
 # parameterによって結果が異なるため、注意
 # オブジェクトとして保存すること( <- )
 Results_FilterTrim <- filterAndTrim(
@@ -61,6 +68,7 @@ Results_FilterTrim <- filterAndTrim(
     truncLen = c(219, 219), maxN = 0, maxEE = c(2, 2), truncQ = 2,
     rm.phix = TRUE, compress = TRUE, multithread = TRUE
 )
+
 
 PlotQC_AF_RData_For <- plotQualityProfile(filtFs[1:9])
 cat(crayon::bgGreen("Processing of plotqualityprofile is complete."))
@@ -89,7 +97,7 @@ cat(crayon::bgGreen("Processing of plotqualityprofile is complete."))
 
 save(PlotQC_AF_RData_For, PlotQC_AF_RData_Rev,
     readfiltFs_lengths_summary, readfiltRs_lengths_summary,
-    file = "./RData/PlotQC/PlotQC_Filt_Data.RData"
+    file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/PlotQC/PlotQC_Filt_Data.RData"
 )
 
 
@@ -149,16 +157,15 @@ save(mergers, seqtab, seqtab2, seqtab.nochim, getN, track,
     file = "./RData/PlotQC/MergeData.RData"
 )
 
+
 # Assign Taxonomy ---------------------------
+
+# dada2::assignTaxonomy() → k-mer頻度とブートストラップによる類似性ベースの分類
+load(file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/MergeData.RData")
 
 # SILVA database (v.138)
 system.time(taxa <- assignTaxonomy(seqtab.nochim,
     refFasta = "~/Documents/RStudio/Novogene/250503/taxa_reference/silva_nr99_v138.2_toGenus_trainset.fa.gz",
-    multithread = TRUE
-))
-
-system.time(taxa_species <- assignTaxonomy(seqtab.nochim,
-    refFasta = "~/Documents/RStudio/Novogene/250503/taxa_reference/silva_nr99_v138.2_toSpecies_trainset.fa.gz",
     multithread = TRUE
 ))
 
@@ -167,18 +174,175 @@ rownames(taxa.print) <- NULL
 head(taxa.print, 20)
 
 
-save(taxa, taxa_species,
+save(taxa,
     file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/Input/phyloseq_Bacteria/TaxaData.RData"
 )
 
 cat(crayon::bgGreen("Processing of plotqualityprofile is complete."))
 
 
-# Inspects SilvaDatabase --------------------
+## Kingom to Species -------------------------
+# taxa <- assignTaxonomy(seqtab.nochim,
+#                        refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/sh_general_release_19.02.2025/sh_general_release_dynamic_19.02.2025.fasta",
+#                        multithread=TRUE)
+
+# assignTaxonomy()されたオブジェクトに、Speciesを割り当てる
+taxa_species_plus <- addSpecies(
+    taxtab = taxa, refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/silva_nr99_v138.2_toSpecies_trainset.fa.gz",
+    verbose = TRUE, allowMultiple = TRUE
+)
+
+
+## Species assignment ------------------------
+
+# As of version 1.5.2(dada2), assignSpecies has been reimplemented to be much faster,
+# and it now easily scales to handle even very large sets of sequences.
+
+# By default the assignSpecies method only returns species assignments if there is no ambiguity,
+# i.e. all exact matches were to the same species.
+# However, given that we are generally working with fragments of the 16S gene,
+# it is common that exact matches are made to multiple sequences that are identical over the sequenced region.
+# This is often still useful information, so to have all sequence hits returned the returnMultiple=TRUE argument can be passed to the assignSpecies function:
+
+
+# dada2::assignSpecies()：クエリ配列と参照配列との100%完全一致で、種の割り当てを行う
+
+# taxa <- dada2::assignSpecies(
+#     seqs = seqtab.nochim,
+#     refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/taxa_reference/silva_v138.2_assignSpecies.fa.gz", # RDPトレーニングセットやSILVA形式など
+#     outputBootstraps = TRUE, # BootstrappingScore
+#     multithread = TRUE,
+#     allowMultiple = TRUE
+# )
+
+# If using this workflow on your own data:
+# In many environments, few sequences will be assigned to species level.
+# That is OK! Reference databases are incomplete,
+# and species assignment is at the limit of what is possible from 16S amplicon data.
+#  Remember, even if the sequenced organism is in the reference database,
+#  if another species shares the same 16S gene sequence it is impossible to unambiguously assign that sequence to species-level.
+
+
+# Inspects AmpliconDatabase --------------------
 library(DECIPHER)
+# General FASTA release (download) [https://unite.ut.ee/repository.php]
+
+## SILVA_SSUfungi_nr99_v138_2_toGenus_trainset.fasta -------------
 
 # SilvaDatabaseのPATHを指定する
 Bacteria_dna <- readDNAStringSet("~/Documents/RStudio/Novogene/250503/taxa_reference/silva_nr99_v138.2_toGenus_trainset.fa.gz")
 str(Bacteria_dna)
+
+
+# 分類情報の抽出
+# Bacteria_dna@ranges@NAMES
 names(Bacteria_dna)[1:3]
-Bacteria_dna@ranges@NAMES
+as.character(Bacteria_dna)[1:3]
+
+
+# ;でsplit
+split_all <- strsplit(names(Bacteria_dna), "\\;")
+split_all[1:3]
+
+
+max_levels <- max(sapply(split_all, length))
+
+# 欠損値をNAで埋める
+split_padded <- lapply(split_all, function(x) {
+    c(x, rep(NA, max_levels - length(x)))
+})
+
+df <- as.data.frame(do.call(rbind, split_padded), stringsAsFactors = FALSE)
+
+colnames(df) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+head(df)
+
+# 配列データ列を追加
+df$Sequence <- as.character(Bacteria_dna)
+df$Length <- nchar(df$Sequence)
+
+str(df)
+
+
+write.csv(
+    x = df,
+    file = "~/Documents/RStudio/Novogene/250503/export_csv/SilvaDatabase/silva_nr99_v138.2_toGenus_trainset.fa.gz.csv", row.names = TRUE
+)
+
+## silva_nr99_v138.2_toSpecies_trainset.fa.gz -------------
+
+# SilvaDatabaseのPATHを指定する
+Bacteria_dna <- readDNAStringSet("~/Documents/RStudio/Novogene/250503/taxa_reference/silva_nr99_v138.2_toSpecies_trainset.fa.gz")
+str(Bacteria_dna)
+
+
+# 分類情報の抽出
+# Bacteria_dna@ranges@NAMES
+names(Bacteria_dna)[1:3]
+as.character(Bacteria_dna)[1:3]
+
+
+# ;でsplit
+split_all <- strsplit(names(Bacteria_dna), "\\;")
+split_all[1:3]
+
+
+max_levels <- max(sapply(split_all, length))
+
+# 欠損値をNAで埋める
+split_padded <- lapply(split_all, function(x) {
+    c(x, rep(NA, max_levels - length(x)))
+})
+
+df <- as.data.frame(do.call(rbind, split_padded), stringsAsFactors = FALSE)
+
+colnames(df) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+head(df)
+
+# 配列データ列を追加
+df$Sequence <- as.character(Bacteria_dna)
+df$Length <- nchar(df$Sequence)
+
+str(df)
+
+
+write.csv(
+    x = df,
+    file = "~/Documents/RStudio/Novogene/250503/export_csv/SilvaDatabase/silva_nr99_v138.2_toSpecies_trainset.fa.gz.csv", row.names = TRUE
+)
+
+
+## Phyloseq Object Sequence ------------------
+# ASV + Taxa + Sequence → csv
+
+ls()
+rm(list = ls())
+# dev.off()
+
+library(phyloseq)
+library(Biostrings)
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/PhyloseqData_Bac.RData")
+str(PhyseqData)
+
+
+tax_table <- as.data.frame(tax_table(PhyseqData))
+head(tax_table)
+
+# DNAStringSet Objects from Phyloseq Objects
+seqs <- refseq(PhyseqData)
+head(names(seqs))
+
+# Save as Fasta
+writeXStringSet(seqs, filepath = "Seqence_PhyseqData_Fng.fasta")
+
+# 配列データを列に追加
+tax_table$Sequence <- as.character(seqs[rownames(tax_table)])
+tax_table$Length <- nchar(as.character(seqs[rownames(tax_table)]))
+
+otu_table <- as.data.frame(t(otu_table(PhyseqData)))
+otu_tax_table <- cbind(otu_table, tax_table)
+
+write.csv(
+    x = otu_tax_table,
+    file = "~/Documents/RStudio/Novogene/250503/export_csv/Bacteria_ASV_Sequence.csv", row.names = TRUE
+)

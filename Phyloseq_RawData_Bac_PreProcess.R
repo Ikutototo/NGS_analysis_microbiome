@@ -417,20 +417,9 @@ colors_40 <- c(
     "#984ea3", "#4daf4a", "#ff69b4", "#a65628", "#999999"
 )
 
-colors_40 <- c(
-    "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
-    "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
-    "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
-    "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
-    "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
-    "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
-    "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
-    "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc"
-)
-
 colors_41 <- c("turquoise","sienna","tomato","peru","blue3","coral2","firebrick",
                "green3","yellow3","seagreen4","orange","red","deeppink","cyan",
-               "darkorange3","darkviolet","red3","red4","grey81","seagreen1",
+               "darkorange3","darkviolet","red3","red4","seagreen1",
                "darkorange4","yellow","yellow4","green","green4","hotpink","blue4",
                "purple","purple3","purple4","tan","tan3","maroon","tan4","black",
                "pink","navy","pink3","lawngreen","pink4","lightskyblue")
@@ -443,7 +432,7 @@ PhyseqData_Phylum <- PhyseqData  |>
     tax_glom(taxrank = "Phylum") %>%                        # agglomerate at phylum level
     transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
     psmelt()  |>                                            # Melt to long format
-    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    filter(Abundance > 0.001)  |>                            # Filter out low(>1%) abundance taxa
     arrange(desc(Phylum))
 
 unique(psmelt(PhyseqData)$Phylum)
@@ -458,17 +447,27 @@ Descending_Phylum <- PhyseqData_Phylum |>
 PhyseqData_Phylum$Phylum <- factor(PhyseqData_Phylum$Phylum, levels = Descending_Phylum)
 
 ggplot(PhyseqData_Phylum, aes(x = dps, y = Abundance, fill = Phylum)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors_40) +
+    geom_bar(stat = "identity", position = "fill") + # position = "fill" → 相対存在量への変換
+    scale_fill_manual(values =  c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979"
+    )) +
     guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
     scale_y_continuous(labels = percent) +
     xlab("Days post Fungicide") +
-    ylab("Relative Abundance (Phylum > 1%) \n") +
-    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
-          axis.text = element_text(size = 12, face = "bold", color = "black"),
+    ylab("Relative Abundance (Phylum > 0.1%) \n") +
+    theme(axis.title.x = element_text(size = 25, face = "bold", color = "#E91E63"),
+          axis.title.y = element_text(size = 25, face = "bold", color = "#E91E63"),
+          axis.text = element_text(size = 15, face = "bold", color = "black"),
           panel.grid.minor = element_blank(),
-          legend.text = element_text(size = 10, color = "black"),
-          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.text = element_text(size = 12, color = "black", face = "italic"),
+          legend.title = element_text(size = 20, face = "bold", color = "#E91E63", hjust = 0.5),
           legend.background = element_rect(fill = "gray90"),
           legend.key = element_rect(fill = "white", color = NA))
 
@@ -584,16 +583,25 @@ PhyseqData_Order$Order <- factor(PhyseqData_Order$Order, levels = Descending_Ord
 
 ggplot(PhyseqData_Order, aes(x = dps, y = Abundance, fill = Order)) + 
     geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979")) +
     guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
     scale_y_continuous(labels = percent) +
     xlab("Days post Fungicide") +
     ylab("Relative Abundance (Order > 1%) \n") +
-    theme(axis.title = element_text(size = 14, face = "bold", color = "black"),
-          axis.text = element_text(size = 12, face = "bold", color = "black"),
+    theme(axis.title.x = element_text(size = 25, face = "bold", color = "#E91E63"),
+          axis.title.y = element_text(size = 25, face = "bold", color = "#E91E63"),
+          axis.text = element_text(size = 15, face = "bold", color = "black"),
           panel.grid.minor = element_blank(),
-          legend.text = element_text(size = 10, color = "black"),
-          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.text = element_text(size = 12, color = "black", face = "italic"),
+          legend.title = element_text(size = 20, face = "bold", color = "#E91E63", hjust = 0.5),
           legend.background = element_rect(fill = "gray90"),
           legend.key = element_rect(fill = "white", color = NA))
 
@@ -651,18 +659,25 @@ length(unique(PhyseqData_Family$Family))
 
 ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
     geom_bar(stat = "identity", position = "fill", width = 0.8) +
-    scale_fill_manual(values = colors_34) +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979")) +
     guides(fill = guide_legend(reverse = F, keywidth = 0.7, keyheight = 1.45)) +
     scale_y_continuous(labels = percent) +
     xlab("Days post Fungicide") +
     ylab("Relative Abundance (Family > 1%) \n") +
-    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
-          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -3, hjust = -1.5),
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold"),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
           axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
           axis.text.y = element_text(size = 25, color = "black", face = "bold"),
-          panel.grid.minor = element_blank(),
-          legend.position = "none")
-
+          panel.grid.minor = element_blank())
+          
 ggsave(filename = "Relative_abundance_Family.png", plot = last_plot(),
        width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
@@ -790,6 +805,704 @@ ggdraw(get_legend(
 ))
 
 
+
+## TaxaAbundunce -----------------------------
+# DESeq2や相対存在量の変動を通じて、大きく変動した分類群をピックアップし、絶対存在量で可視化
+
+
+### "Burkholderiales" (Order)----------------
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Burkholderiales <- PhyseqData  |> 
+    subset_taxa(Order == "Burkholderiales") |> 
+    tax_glom(taxrank = "Genus") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Order))
+
+Descending <- PhyseqData_Burkholderiales  |> 
+    dplyr::group_by(Genus)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Genus)
+
+PhyseqData_Burkholderiales$Genus <- factor(PhyseqData_Burkholderiales$Genus, levels = Descending)
+
+
+
+ggplot(PhyseqData_Burkholderiales, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Burkholderiales + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20", hjust = -5),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Genus).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Pseudomonadales, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Pseudomonadales + tax_glom(taxrank = Family)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20", hjust = -5),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Relative_abundance_Class_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+### "Burkholderiales" (Family)----------------
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Burkholderiales <- PhyseqData  |> 
+    subset_taxa(Order == "Burkholderiales") |> 
+    tax_glom(taxrank = "Family") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Family))
+
+Descending <- PhyseqData_Burkholderiales  |> 
+    dplyr::group_by(Family)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Family)
+
+PhyseqData_Burkholderiales$Family <- factor(PhyseqData_Burkholderiales$Family, levels = Descending)
+
+
+
+ggplot(PhyseqData_Burkholderiales, aes(x = dps, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Burkholderiales + tax_glom(taxrank = Family)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Burkholderiales, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Burkholderiales + tax_glom(taxrank = Family)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### "Pseudomonadales" (Order)----------------
+
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Pseudomonadales <- PhyseqData  |> 
+    subset_taxa(Order == "Pseudomonadales") |> 
+    tax_glom(taxrank = "Family") |> # Familyレベルで統合                 
+    
+Descending <- PhyseqData_Pseudomonadales  |> 
+    dplyr::group_by(Family)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Family)
+
+PhyseqData_Pseudomonadales$Family <- factor(PhyseqData_Pseudomonadales$Family, levels = Descending)
+unique(PhyseqData_Pseudomonadales$Genus)
+unique(PhyseqData_Pseudomonadales$Family)
+
+PhyseqData_Pseudomonadales |> 
+    dplyr::group_by(Genus) |> 
+    dplyr::summarise(
+        abundance = sum(Abundance, na.rm = TRUE),
+        mean_abundance = mean(Abundance, na.rm = TRUE),
+        total_abundance = sum(Abundance, na.rm = TRUE),
+        n_samples = n(),
+        .groups = 'drop'
+    )
+
+PhyseqData  |> 
+    subset_taxa(Order == "Pseudomonadales") |> 
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Order)) |> 
+    dplyr::group_by(Family) |> 
+    dplyr::summarise(
+        abundance = sum(Abundance, na.rm = TRUE),
+        mean_abundance = mean(Abundance, na.rm = TRUE),
+        total_abundance = sum(Abundance, na.rm = TRUE),
+        n_samples = n(),
+        .groups = 'drop'
+    )
+
+
+ggplot(PhyseqData_Pseudomonadales, aes(x = dps, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Pseudomonadales + tax_glom(taxrank = Family)
+         \n fill=Family") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Genus).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Burkholderiales, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Burkholderiales + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20", hjust = -5),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Relative_abundance_Class_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### "Sphingomonadales" (Family)----------------
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Sphingomonadales <- PhyseqData  |> 
+    subset_taxa(Order == "Sphingomonadales") |> 
+    tax_glom(taxrank = "Family") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Family))
+
+Descending <- PhyseqData_Sphingomonadales  |> 
+    dplyr::group_by(Family)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Family)
+
+PhyseqData_Sphingomonadales$Family <- factor(PhyseqData_Sphingomonadales$Family, levels = Descending)
+
+
+
+ggplot(PhyseqData_Sphingomonadales, aes(x = dps, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Sphingomonadales + tax_glom(taxrank = Family)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == BurkhoSphingomonadaleslderiales + tax_glom(taxrank = Family).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Sphingomonadales, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Sphingomonadales + tax_glom(taxrank = Family)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### "Sphingomonadales" (Genus)----------------
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Sphingomonadales <- PhyseqData  |> 
+    subset_taxa(Order == "Sphingomonadales") |> 
+    tax_glom(taxrank = "Genus") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Genus))
+
+Descending <- PhyseqData_Sphingomonadales  |> 
+    dplyr::group_by(Genus)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Genus)
+
+PhyseqData_Sphingomonadales$Genus <- factor(PhyseqData_Sphingomonadales$Genus, levels = Descending)
+
+
+
+ggplot(PhyseqData_Sphingomonadales, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Sphingomonadales + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == BurkhoSphingomonadaleslderiales + tax_glom(taxrank = Family).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Sphingomonadales, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Sphingomonadales + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### "Hydrogenophilaceae" (Family)----------------
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Hydrogenophilaceae <- PhyseqData  |> 
+    subset_taxa(Family == "Hydrogenophilaceae") |> 
+    tax_glom(taxrank = "Genus") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Family))
+
+Descending <- PhyseqData_Hydrogenophilaceae  |> 
+    dplyr::group_by(Genus)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Genus)
+
+PhyseqData_Hydrogenophilaceae$Genus <- factor(PhyseqData_Hydrogenophilaceae$Genus, levels = Descending)
+
+
+
+ggplot(PhyseqData_Hydrogenophilaceae, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Family == Hydrogenophilaceae + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Family == Hydrogenophilaceae + tax_glom(taxrank = Genus).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Hydrogenophilaceae, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Family == Hydrogenophilaceae + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Family == Hydrogenophilaceae + tax_glom(taxrank = Family)_Sample.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### "Sphingomonadales" (Genus)----------------
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Sphingomonadales <- PhyseqData  |> 
+    subset_taxa(Order == "Sphingomonadales") |> 
+    tax_glom(taxrank = "Genus") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Genus))
+
+Descending <- PhyseqData_Sphingomonadales  |> 
+    dplyr::group_by(Genus)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Genus)
+
+PhyseqData_Sphingomonadales$Genus <- factor(PhyseqData_Sphingomonadales$Genus, levels = Descending)
+
+
+
+ggplot(PhyseqData_Sphingomonadales, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Sphingomonadales + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == BurkhoSphingomonadaleslderiales + tax_glom(taxrank = Family).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Sphingomonadales, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Sphingomonadales + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### "Pedosphaeraceae" (Genus)----------------
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Pedosphaeraceae <- PhyseqData  |> 
+    subset_taxa(Family == "Pedosphaeraceae") |> 
+    tax_glom(taxrank = "Genus") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Genus))
+
+Descending <- PhyseqData_Pedosphaeraceae  |> 
+    dplyr::group_by(Genus)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Genus)
+
+PhyseqData_Pedosphaeraceae$Genus <- factor(PhyseqData_Pedosphaeraceae$Genus, levels = Descending)
+
+
+
+ggplot(PhyseqData_Pedosphaeraceae, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Family == Pedosphaeraceae + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Family == Pedosphaeraceae + tax_glom(taxrank = Genus).png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+ggplot(PhyseqData_Pedosphaeraceae, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Family == Pedosphaeraceae + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 13, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20"),
+        panel.grid.minor = element_blank())
+
+
+ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 ## Top 50 Filtering --------------------------
 

@@ -160,19 +160,23 @@ save(mergers, seqtab, seqtab2, seqtab.nochim, getN, track,
 
 # Assign Taxonomy ---------------------------
 
+load("/Users/ikutosaito/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/TaxaData.RData")
+
 # dada2::assignTaxonomy() → k-mer頻度とブートストラップによる類似性ベースの分類
 load(file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/MergeData.RData")
 
 # SILVA database (v.138)
-system.time(taxa <- assignTaxonomy(seqtab.nochim,
+system.time(taxa <- assignTaxonomy(seqtab.nochim
     refFasta = "~/Documents/RStudio/Novogene/250503/taxa_reference/silva_nr99_v138.2_toGenus_trainset.fa.gz",
-    multithread = TRUE
+    multithread = TRUE, outputBootstraps = TRUE, verbose = TRUE, minBoot = 50
 ))
 
 taxa.print <- taxa # Removing sequence rownames for display only
 rownames(taxa.print) <- NULL
 head(taxa.print, 20)
 
+# taxaオブジェクトのブートストラップ値表示
+# 
 
 save(taxa,
     file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/Input/phyloseq_Bacteria/TaxaData.RData"

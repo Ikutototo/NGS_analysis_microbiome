@@ -271,6 +271,7 @@ echo "BLAST search completed. Results saved to $output_file"
 # Inspects AmpliconDatabase --------------------
 library(DECIPHER)
 # General FASTA release (download) [https://unite.ut.ee/repository.php]
+# 250708 URL 無効になっている
 
 # UNITEによるAnnotationが適している場合
 # ITS領域を用いた真菌群集解析

@@ -160,7 +160,7 @@ save(mergers, seqtab, seqtab2, seqtab.nochim, getN, track,
 
 # Assign Taxonomy ---------------------------
 
-load("/Users/ikutosaito/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/TaxaData.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/TaxaData.RData")
 
 # dada2::assignTaxonomy() → k-mer頻度とブートストラップによる類似性ベースの分類
 load(file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/MergeData.RData")
@@ -191,10 +191,10 @@ cat(crayon::bgGreen("Processing of plotqualityprofile is complete."))
 #                        multithread=TRUE)
 
 # assignTaxonomy()されたオブジェクトに、Speciesを割り当てる
-taxa_species_plus <- addSpecies(
-    taxtab = taxa, refFasta = "~/Documents/RStudio/Novogene/Data/NGS_Analysis/silva_nr99_v138.2_toSpecies_trainset.fa.gz",
-    verbose = TRUE, allowMultiple = TRUE
-)
+system.time(taxa_species_plus <- dada2::addSpecies(
+    taxtab = taxa, refFasta = "~/Documents/RStudio/Novogene/250503/taxa_reference/silva_v138.2_assignSpecies.fa.gz",
+    verbose = TRUE, allowMultiple = TRUE, 
+))
 
 
 ## Species assignment ------------------------

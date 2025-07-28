@@ -1,28 +1,24 @@
 # Setting -----------------------------------
 
 ## Gitで管理しているなら、Pullして、最新版をローカルにアップデートしてから始めること!!
-## Githubでローカルとリモートでコンフリクトが起きた場合、(AirとProで別々にcommitした場合)
+## Githubでローカルとリモートでコンフリクトが起きた場合、(AirとProで別々にcommit&Pushした場合)
 ## 以下のコマンドで、リモート(origin)の内容でPullを実施
 # git fetch origin
 # git reset --hard origin/main
 
-ls()
-rm(list = ls())
-
 setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
-library(phyloseq)
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
-
-dev.off()
+ls()
 rm(list = ls())
+dev.off()
 
-cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
+# load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/250728_PhyloseqData_Bacteria.RData")
 
-install.packages("styler")
 
 # Prevalence filtering ----------------------
 
+library(phyloseq)
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Plot/Prevelence_inTaxa.RData")
 
 ## Sample(Bac1~9)において、各ASVsが出現した(>0)Sample数(存在頻度)を出力
@@ -339,8 +335,6 @@ dev.off()
 rm(list = ls())
 
 
-
-
 # Abundance value Counts & refseq ------------
 
 ## 有意な差が認められた分類群の存在量を個別で可視化
@@ -353,8 +347,6 @@ write.csv(data.frame(Sequence = refseq(PhyseqData)[taxa_names(subset_taxa(Physeq
                      ASV_ID = taxa_names(subset_taxa(PhyseqData, Genus == "Bryobacter")),
                      stringsAsFactors = FALSE),
           file = "~/Documents/RStudio/Novogene/250503/export_csv/Bryobacter_sequences.csv", row.names = FALSE)
-
-
 
 
 
@@ -1570,8 +1562,9 @@ alpha_df <- alpha_df |>
     dplyr::select(Observed,Chao1,se.chao1,ACE,
                   se.ACE,Shannon,Simpson,InvSimpson,Fisher, everything())
 
-### NonChimera --------------------------------
+### Seqence-Reads Plots --------------------------------
 library(tibble)
+library(ggplot2)
 
 rownames(track)
 colnames(track)
@@ -1580,33 +1573,29 @@ class(track)
 track <- rownames_to_column(as.data.frame(track), var = "Sample.Name")
 
 track |> 
-    ggplot(aes(x = Sample.Name, y = nonchim,
+    ggplot(aes(x = Sample.Name, y = Nonchim,
                fill = Sample.Name)) +
     scale_fill_manual(values = c("#1b9e77", "#d95f02", "#7570b3",
                                  "#e7298a", "#66a61e", "#e6ab02",
                                  "#a6761d", "#666666", "#8dd3c7")) + 
     geom_bar(stat = "identity", width = 0.7) +
-    ylab("Nonchim") +
-    xlab("Sample.Name") +
-    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
-          axis.text = element_text(size = 12, face = "bold", color = "black"),
+    ylab("Seqence-Reads") +
+    xlab("Sample-Name") +
+    theme(axis.title = element_text(size = 20, face = "bold", color = "#d95f02"),
+          axis.text = element_text(size = 15, face = "bold", color = "black"),
           panel.grid.minor = element_blank(),
           legend.text = element_text(size = 10, color = "black"),
           legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
           legend.background = element_rect(fill = "gray90"),
           legend.key = element_rect(fill = "white", color = NA))
 
-ggsave(filename = "nonchim.png", plot = last_plot(), 
-       width = 2800, height = 2520, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+# ggsave(filename = "nonchim.png", plot = last_plot(), 
+#        width = 2800, height = 2520, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
 ### Observed ASVs -----------------------------
 
-
-
-
-### Observed ASVs
 alpha_df |> 
     ggplot(aes(x = Sample.Name, y = Observed,
                fill = Sample.Name)) +
@@ -1616,11 +1605,11 @@ alpha_df |>
     geom_bar(stat = "identity", width = 0.7) +
     ylab("Observed ASVs") +
     xlab("Sample.Name") +
-    theme(axis.title = element_text(size = 18, face = "bold", color = "black"),
-          axis.text = element_text(size = 12, face = "bold", color = "black"),
+    theme(axis.title = element_text(size = 20, face = "bold", color = "black"),
+          axis.text = element_text(size = 15, face = "bold", color = "black"),
           panel.grid.minor = element_blank(),
-          legend.text = element_text(size = 10, color = "black"),
-          legend.title = element_text(size = 14, face = "bold", color = "black", hjust = 0.5),
+          legend.text = element_text(size = 10,face = "bold",  color = "black"),
+          legend.title = element_text(size = 12, face = "bold", color = "black", hjust = 0.5),
           legend.background = element_rect(fill = "gray90"),
           legend.key = element_rect(fill = "white", color = NA))
 
@@ -1725,13 +1714,14 @@ compare_means(Shannon ~ Fungicide.use, data = alpha_df,
 
 
 ## 多様性指数の統計処理 
-stat.test_dps <- compare_means(Shannon ~ dps, data = alpha_df, 
+stat.test.dps <- compare_means(Shannon ~ dps, data = alpha_df, 
                                method = "wilcox.test", label = "p.format")
 ## y.position(p値表示の高さ)
-stat.test_dps$y.position <- seq(
+stat.test.dps$y.position <- seq(
     from = max(alpha_df$Shannon, na.rm = TRUE) * 1.05,
     by = max(alpha_df$Shannon, na.rm = TRUE) * 0.05,
-    length.out = nrow(stat.test_dps))
+    length.out = nrow(stat.test.dps))
+
 
 ggplot(alpha_df, aes(x = dps, y = Shannon)) +
     geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = dps)) +
@@ -1754,12 +1744,72 @@ ggplot(alpha_df, aes(x = dps, y = Shannon)) +
                                   "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a")) +
     guides(color = guide_legend(override.aes = list(size = 5))) 
     
-    
 
-ggsave(filename = "Bac_Richness_Shannon_FungicideUse.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
+## Facet_Alpha-Diversity-Index ---------------
+# 250728
+# facet
+library(tidyverse)
+library(ggpubr)
+
+alpha_long <- alpha_df |> 
+    dplyr::select(Sample.Name, Observed, Shannon, Simpson, dps) |> 
+    pivot_longer(cols = c(Observed, Shannon, Simpson),
+                 names_to = "Index",
+                 values_to = "Value") |> 
+    as.data.frame()
+
+stat_test_dps <- compare_means(
+    Value ~ dps,
+    data = alpha_long,
+    method = "wilcox.test",
+    label = "p.format",
+    group.by = "Index"
+)
+
+stat_test_dps <- stat_test_dps  |> 
+    group_by(Index)  |> 
+    mutate(
+        y.position = seq(
+            from = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 1.05,
+            by = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 0.05,
+            length.out = n()
+        )
+    )  |> 
+    ungroup()
+
+
+alpha_df |> 
+    dplyr::select(Sample.Name, Observed, Shannon, Simpson, dps) |> 
+    pivot_longer(cols = c(Observed, Shannon, Simpson),
+                 names_to = "Index",
+                 values_to = "Value") |> 
+    ggplot(aes(x = dps, y = Value)) +
+    geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = dps)) +
+    facet_wrap(~Index, scales = "free_y") +
+    xlab("Days-Post-Fungicides") + 
+    ylab("Alpha-Diversity") +
+    theme(
+        legend.position = "right", 
+        legend.title = element_text(size = 16, face = "bold", color = "black"),
+        legend.text = element_text(size = 14, face = "plain", color = "black"),
+        strip.text = element_text(size = 15, face = "bold", color = "black"),
+        strip.background = element_rect(fill = "lightgray", color = "gray50"), 
+        axis.title.x = element_text(size = 20, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 20, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 16, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 14, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) + 
+    geom_jitter(aes(color = Sample.Name), width = 0.08, size = 3, alpha = 0.8, show.legend = FALSE) +
+    stat_pvalue_manual(stat_test_dps, label = " {p.signif}", label.size = 8 , bracket.size = 0.5) +
+    guides(fill = guide_legend(override.aes = list(size = 10))) +
+    # scale_fill_grey(start = 0.3, end = 0.9) + 
+    # scale_color_grey(start = 0.3, end = 0.9) 
+    scale_fill_manual(values = c( "limegreen", "violet", "turquoise")) +
+    scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
+                                  "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a"))
 
 
 

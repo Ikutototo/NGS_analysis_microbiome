@@ -1,10 +1,13 @@
 # Setting -----------------------------------
 setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
-rm(list = ls())
 
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/MergeData.RData")
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/TaxaData.RData")
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/fitGTR_m4.RData")
+ls()
+rm(list = ls())
+dev.off()
+
+
+# load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/MergeData.RData")
+# load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/TaxaData.RData")
 # load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/phylogenetic.RData")
 
 
@@ -20,6 +23,9 @@ MetaData$Fungicide.use <- factor(MetaData$Fungicide.use, levels = c("yes", "no")
 
 
 ## rownames(MetaData) = rownames(seqtab.nochim)で合わせる → phyloseq()で必要
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/250728_TaxaData.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/250728_MergeData.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Input/fitGTR_m4.RData")
 rownames(seqtab.nochim)
 rownames(MetaData) <- rownames(seqtab.nochim)
 sample_names(otu_table(seqtab.nochim, taxa_are_rows = FALSE))
@@ -90,11 +96,20 @@ detach("package:phangorn", unload = TRUE)
 
 # ConstructPhyloseqObjects --------------------
 
+# library(phyloseq)
+# PhyseqData <- phyloseq(
+#     otu_table(seqtab.nochim, taxa_are_rows = FALSE),
+#     sample_data(MetaData),
+#     phyloseq::tax_table(taxa), # MicrobiotaProcessとPhyloseqでコンフリクトが起きるので注意
+#     phy_tree(fitGTR$tree)
+# )
+
+# 250728 (Phy_treeは以前のを使用)
 library(phyloseq)
 PhyseqData <- phyloseq(
     otu_table(seqtab.nochim, taxa_are_rows = FALSE),
     sample_data(MetaData),
-    phyloseq::tax_table(taxa), # MicrobiotaProcessとPhyloseqでコンフリクトが起きるので注意
+    phyloseq::tax_table(taxa$tax), # MicrobiotaProcessとPhyloseqでコンフリクトが起きるので注意
     phy_tree(fitGTR$tree)
 )
 
@@ -118,7 +133,7 @@ taxa_names(PhyseqData) <- paste0("ASV", seq(ntaxa(PhyseqData)))
 ## Save_PhyloseqData -------------------------
 
 save(MetaData, PhyseqData, track,
-    file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData"
+    file = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/250728_PhyloseqData_Bacteria.RData"
 )
 
 

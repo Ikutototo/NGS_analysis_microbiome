@@ -1749,6 +1749,24 @@ ggplot(alpha_df, aes(x = dps, y = Shannon)) +
 ## Facet_Alpha-Diversity-Index ---------------
 # 250728
 # facet
+# load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/250728_PhyloseqData_Bacteria.RData")
+
+# シングルトンが無い場合、警告文が出るが、無視
+alpha_df <- estimate_richness(PhyseqData)
+colnames(alpha_df)
+
+rownames(data.frame(sample_data(PhyseqData)))
+rownames(alpha_df)
+
+
+# 行数が同じであることを確認した上で、cbind()
+alpha_df <- cbind(data.frame(sample_data(PhyseqData)), alpha_df) 
+colnames(alpha_df)
+alpha_df <- alpha_df |> 
+    dplyr::select(Observed,Chao1,se.chao1,ACE,
+                  se.ACE,Shannon,Simpson,InvSimpson,Fisher, everything())
+
 library(tidyverse)
 library(ggpubr)
 
@@ -1850,8 +1868,8 @@ library(ggplot2)
 library(phyloseq)
 library(ape)         
 
-
-load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/250728_PhyloseqData_Bacteria.RData")
+# load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 
 otu_table <- as.data.frame(otu_table(PhyseqData))
 rm(PhyseqData, track)
@@ -1889,14 +1907,15 @@ ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = dps)) +
     theme_minimal(base_size = 16) +
     theme(
         legend.position = "right",
-        legend.title = element_text(size = 25, face = "bold",  colour = "#E91E63"),
-        legend.text = element_text(size = 25),
-        axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 1),
-        axis.title.y = element_text(size = 25, colour = "#E91E63", hjust = 0.5),
-        axis.text = element_text(size = 30, face = "bold", color = "black"),
+        legend.title = element_text(size = 20, face = "bold",  colour = "black"),
+        legend.text = element_text(size = 20),
+        axis.title.x = element_text(size = 20, colour = "black", vjust = 1),
+        axis.title.y = element_text(size = 20, colour = "black", hjust = 0.5),
+        axis.text = element_text(size = 15, face = "bold", color = "black"),
         plot.caption = element_text(size = 20, color = "gray20"),
         title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
-    scale_color_brewer(palette = "Set1")
+    guides(fill = guide_legend(override.aes = list(size = 10))) +
+    scale_color_manual(values = c( "limegreen", "violet", "turquoise"))
 
 
 # vegan::betadisper()による群内分散の検定  

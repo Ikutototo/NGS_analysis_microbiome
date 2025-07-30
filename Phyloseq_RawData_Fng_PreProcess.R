@@ -1,6 +1,10 @@
+
 # Setting -----------------------------------
 
+
+ls()
 rm(list = ls())
+dev.off()
 
 setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
@@ -884,6 +888,147 @@ ggsave(filename = "Fng_Richness_Shannon_dps.png", plot = last_plot(),
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
+## Facet_Alpha-Diversity-Index ---------------
+# 250728
+# facet
+library(phyloseq)
+library(tidyverse)
+library(ggpubr)
+
+load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Input/PhyseqData_Fng.RData")
+
+# シングルトンが無い場合、警告文が出るが、無視
+alpha_df <- estimate_richness(PhyseqData_Fng)
+colnames(alpha_df)
+
+rownames(data.frame(sample_data(PhyseqData_Fng)))
+rownames(alpha_df)
+
+
+# 行数が同じであることを確認した上で、cbind()
+alpha_df <- cbind(data.frame(sample_data(PhyseqData_Fng)), alpha_df) 
+colnames(alpha_df)
+alpha_df <- alpha_df |> 
+    dplyr::select(Observed,Chao1,se.chao1,ACE,
+                  se.ACE,Shannon,Simpson,InvSimpson,Fisher, everything())
+
+alpha_long <- alpha_df |> 
+    dplyr::select(SampleName, Observed, Shannon, Simpson, dps, Fungicide.use) |> 
+    pivot_longer(cols = c(Observed, Shannon, Simpson),
+                 names_to = "Index",
+                 values_to = "Value") |> 
+    as.data.frame()
+
+
+
+stat_test_dps <- compare_means(
+    Value ~ dps,
+    data = alpha_long,
+    method = "wilcox.test",
+    label = "p.format",
+    group.by = "Index"
+)
+
+
+stat_test_Fungicide_use <- compare_means(
+    Value ~ Fungicide.use,
+    data = alpha_long,
+    method = "wilcox.test",
+    label = "p.format",
+    group.by = "Index"
+)
+
+stat_test_dps <- stat_test_dps  |> 
+    group_by(Index)  |> 
+    mutate(
+        y.position = seq(
+            from = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 1.05,
+            by = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 0.05,
+            length.out = n()
+        )
+    )  |> 
+    ungroup()
+
+stat_test_Fungicide_use <- stat_test_Fungicide_use  |> 
+    group_by(Index)  |> 
+    mutate(
+        y.position = seq(
+            from = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 1.05,
+            by = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 0.05,
+            length.out = n()
+        )
+    )  |> 
+    ungroup()
+
+
+alpha_df |> 
+    dplyr::select(SampleName, Observed, Shannon, Simpson, dps) |> 
+    pivot_longer(cols = c(Observed, Shannon, Simpson),
+                 names_to = "Index",
+                 values_to = "Value") |> 
+    ggplot(aes(x = dps, y = Value)) +
+    geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = dps)) +
+    facet_wrap(~Index, scales = "free_y") +
+    xlab("Days-Post-Fungicides") + 
+    ylab("Alpha-Diversity") +
+    theme(
+        legend.position = "right", 
+        legend.title = element_text(size = 16, face = "bold", color = "black"),
+        legend.text = element_text(size = 14, face = "plain", color = "black"),
+        strip.text = element_text(size = 15, face = "bold", color = "black"),
+        strip.background = element_rect(fill = "lightgray", color = "gray50"), 
+        axis.title.x = element_text(size = 20, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 20, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 16, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 14, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) + 
+    geom_jitter(aes(color = SampleName), width = 0.08, size = 3, alpha = 0.8, show.legend = FALSE) +
+    stat_pvalue_manual(stat_test_dps, label = " {p.signif}", label.size = 8 , bracket.size = 0.5) +
+    guides(fill = guide_legend(override.aes = list(size = 10))) +
+    # scale_fill_grey(start = 0.3, end = 0.9) + 
+    # scale_color_grey(start = 0.3, end = 0.9) 
+    scale_fill_manual(values = c( "limegreen", "violet", "turquoise")) +
+    scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
+                                  "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a"))
+
+
+alpha_df |> 
+    dplyr::select(SampleName, Observed, Shannon, Simpson, dps, Fungicide.use) |> 
+    pivot_longer(cols = c(Observed, Shannon, Simpson),
+                 names_to = "Index",
+                 values_to = "Value") |> 
+    ggplot(aes(x = Fungicide.use, y = Value)) +
+    geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = dps)) +
+    facet_wrap(~Index, scales = "free_y") +
+    xlab("Days-Post-Fungicides") + 
+    ylab("Alpha-Diversity") +
+    theme(
+        legend.position = "right", 
+        legend.title = element_text(size = 16, face = "bold", color = "black"),
+        legend.text = element_text(size = 14, face = "plain", color = "black"),
+        strip.text = element_text(size = 15, face = "bold", color = "black"),
+        strip.background = element_rect(fill = "lightgray", color = "gray50"), 
+        axis.title.x = element_text(size = 20, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 20, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 16, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 14, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) + 
+    geom_jitter(aes(color = SampleName), width = 0.08, size = 3, alpha = 0.8, show.legend = FALSE) +
+    stat_pvalue_manual(stat_test_Fungicide_use, label = " {p.signif}", label.size = 8 , bracket.size = 0.5) +
+    guides(fill = guide_legend(override.aes = list(size = 10))) +
+    # scale_fill_grey(start = 0.3, end = 0.9) + 
+    # scale_color_grey(start = 0.3, end = 0.9) 
+    scale_fill_manual(values = c( "limegreen", "violet", "turquoise")) +
+    scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
+                                  "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a"))
+
+
+
+
 ### Compare_Fungicide.use ---------------------
 
 stat.test <- compare_means(Shannon ~ Fungicide.use, data = alpha_df,
@@ -925,7 +1070,7 @@ library(ape)
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Input/PhyseqData_Fng.RData")
 
 otu_table <- as.data.frame(otu_table(PhyseqData_Fng))
-rm(PhyseqData, track)
+rm(PhyseqData_Fng, track)
 
 
 ## Vegan  ------------------------------------
@@ -953,7 +1098,7 @@ ExplainedVariance <- round(ExplainedVariance * 100, 1)
 # PCoAPlots in Bray-Curtis
 ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = dps)) +
     geom_point(size = 8, alpha = 0.7) +
-    geom_text(aes(label = Sample.Name), vjust = -1.3, size = 4) + 
+    geom_text(aes(label = SampleName), vjust = -1.3, size = 4) + 
     labs(caption = "PCoA with Bray-Curtis") +
     xlab(paste0("PCoA1 (", ExplainedVariance[1], "%)")) +
     ylab(paste0("PCoA2 (", ExplainedVariance[2], "%)")) +

@@ -16,6 +16,24 @@ dev.off()
 # load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/250728_PhyloseqData_Bacteria.RData")
 
+# Exports_OTU_Table -------------------------
+
+# ASVs Tableの生成と出力
+otu_mat <- t(as(otu_table(PhyseqData), Class = "matrix"))
+tax_mat <- as(tax_table(PhyseqData), Class = "matrix")
+otu_table <- cbind(otu_mat, tax_mat)
+write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/otu_table.csv",
+          row.names = TRUE)
+
+# シングルトン有無の確認
+sum(as(otu_table(PhyseqData), Class = "matrix") == 1)
+tail(phyloseq::taxa_sums(PhyseqData))
+plot_richness(PhyseqData, nrow = 3)
+
+# ggsave(filename = "RichnessIndex.png", plot = last_plot(),
+#        width = 2800, height = 2520, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
 
 # Prevalence filtering ----------------------
 
@@ -463,15 +481,22 @@ ggplot(PhyseqData_Phylum, aes(x = Sample.Name, y = Abundance, fill = Phylum)) +
           legend.key = element_rect(fill = "white", color = NA),
           legend.key.size = unit(3, "cm"))
 
-ggsave(filename = "Relative_abundance_Phylum_SampleName.png", plot = last_plot(),
-       width = 2800, height = 2520, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
+# ggsave(filename = "Relative_abundance_Phylum_SampleName.png", plot = last_plot(),
+#        width = 2800, height = 2520, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
 ### flextable::flextable() --------------------
 # 250809_Table(Phylum)
 library(flextable)
+
+PhyseqData_Phylum <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Phylum") %>%                        # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    # filter(Abundance > 0.001)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Phylum))
 
 table_df <- PhyseqData_Phylum |> 
     dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Phylum) |> 
@@ -479,16 +504,12 @@ table_df <- PhyseqData_Phylum |>
     summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
     tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
 
+
+
 colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
 colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
 colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
-    
-flextable::flextable(as.data.frame(table_df))
 
-
-# 相対存在量 1% Filtering
-table_df <- table_df |> 
-dplyr::filter(`0days(%)` > 1)
 
 Ascending_Phylum <- PhyseqData_Phylum |> 
     group_by(Phylum)  |> 
@@ -501,6 +522,10 @@ colnames(table_df)
 
 table_df <- table_df |> arrange(Phylum)
 
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+dplyr::filter(`0days(%)` > 0.1)
+
 
 flextable::flextable(table_df) |> 
     align(align = "center", part = "all") |>
@@ -508,6 +533,9 @@ flextable::flextable(table_df) |>
     set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
     set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
     flextable::bold(part = "header")
+
+unique(table_df$Phylum)
+length(unique(table_df$Phylum))
 
 ## Class Level -------------------------------
 
@@ -961,8 +989,9 @@ PhyseqData_Genus <- PhyseqData  |>
     tax_glom(taxrank = "Genus")  |>                         # agglomerate at phylum level
     transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
     psmelt()  |>                                            # Melt to long format
-    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    # filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
     arrange(desc(Genus))
+
 
 table_df <- PhyseqData_Genus |> 
     dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Genus) |> 
@@ -976,7 +1005,7 @@ colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
 
 # 相対存在量 1% Filtering
 table_df <- table_df |> 
-    dplyr::filter(`0days(%)` > 1)
+    dplyr::filter(`0days(%)` > 0.1)
 
 Ascending_Genus <- PhyseqData_Genus |> 
     group_by(Genus)  |> 
@@ -997,12 +1026,29 @@ flextable::flextable(table_df) |>
     set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
     flextable::bold(part = "header")
 
+length(unique(table_df$Genus))
 
-## TaxaAbundunce -----------------------------
+
+#### Filter_Genus -----------------------------
+
+# 着目したい属のみを指定
+table_df |> 
+    dplyr::filter(Genus %in% c("Duganella", "Rugamonas", "Pseudomonas",
+                               "Nitrospira", "Sphingomonas", "Bradyrhizobium",
+                               "Mesorhizobium", "Rhizorhabdus", "Ralstonia",
+                               "Bryobacter", "mle1-7", "MND1")) |> 
+    flextable::flextable() |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
+
+# TaxaAbundunce -----------------------------
 # DESeq2や相対存在量の変動を通じて、大きく変動した分類群をピックアップし、絶対存在量で可視化
 
-
-### "Burkholderiales" (Order)----------------
+## "Burkholderiales" (Order)----------------
 library(ggplot2)
 library(dplyr)
 
@@ -1085,7 +1131,7 @@ ggsave(filename = "Relative_abundance_Class_SampleName.png", plot = last_plot(),
        width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-### "Burkholderiales" (Family)----------------
+## "Burkholderiales" (Family)----------------
 library(ggplot2)
 library(dplyr)
 
@@ -1169,7 +1215,7 @@ ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family).png", p
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-### "Pseudomonadales" (Order)----------------
+## "Pseudomonadales" (Order)----------------
 
 library(ggplot2)
 library(dplyr)
@@ -1277,7 +1323,7 @@ ggsave(filename = "Relative_abundance_Class_SampleName.png", plot = last_plot(),
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-### "Sphingomonadales" (Family)----------------
+## "Sphingomonadales" (Family)----------------
 library(ggplot2)
 library(dplyr)
 
@@ -1361,7 +1407,7 @@ ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-### "Sphingomonadales" (Genus)----------------
+## "Sphingomonadales" (Genus)----------------
 library(ggplot2)
 library(dplyr)
 
@@ -1445,7 +1491,7 @@ ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-### "Hydrogenophilaceae" (Family)----------------
+## "Hydrogenophilaceae" (Family)----------------
 library(ggplot2)
 library(dplyr)
 
@@ -1529,7 +1575,7 @@ ggsave(filename = "Family == Hydrogenophilaceae + tax_glom(taxrank = Family)_Sam
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-### "Sphingomonadales" (Genus)----------------
+## "Sphingomonadales" (Genus)----------------
 library(ggplot2)
 library(dplyr)
 
@@ -1613,7 +1659,7 @@ ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-### "Pedosphaeraceae" (Genus)----------------
+## "Pedosphaeraceae" (Genus)----------------
 library(ggplot2)
 library(dplyr)
 
@@ -1696,7 +1742,8 @@ ggsave(filename = "Order == Burkholderiales + tax_glom(taxrank = Family)_Sample.
        width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-## Top 50 Filtering --------------------------
+
+# Top 50 Filtering --------------------------
 
 # Selects Top 50 
 top50_taxa <- names(sort(taxa_sums(PhyseqData), decreasing = TRUE)[1:50])
@@ -1706,12 +1753,12 @@ prune_taxa(top_taxa, PhyseqData)
 
 ## Top50_Plot_Relative_Abundunce -------------
 
-### 前処理無し → 存在量の可視化
+# 前処理無し → 存在量の可視化
 plot_bar(PhyseqData, x = "Sample.Name", fill = "Phylum") + scale_fill_igv()
 
 colnames(psmelt(PhyseqData)) 
 
-### Visualize patterns (scatterplot)
+# Visualize patterns (scatterplot)
 psmelt(PhyseqData) |> 
     select(OTU, Sample, Abundance, dps) |> 
     filter(OTU == top50_taxa[1]) |> # 全Sampleで、最も存在量が多いASVs
@@ -1722,28 +1769,12 @@ psmelt(PhyseqData) |>
 
 
 # Richness Index ----------------------------
+
 library(phyloseq)
 library(dplyr)
 library(ggplot2)
 library(ggpubr)
 library(tidyr)
-
-## Exports_OTU_Table -------------------------
-## ASVs Tableの生成と出力
-otu_mat <- t(as(otu_table(PhyseqData), Class = "matrix"))
-tax_mat <- as(tax_table(PhyseqData), Class = "matrix")
-otu_table <- cbind(otu_mat, tax_mat)
-write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/otu_table.csv",
-          row.names = TRUE)
-
-## シングルトン有無の確認
-sum(as(otu_table(PhyseqData), Class = "matrix") == 1)
-tail(phyloseq::taxa_sums(PhyseqData))
-plot_richness(PhyseqData, nrow = 3)
-
-ggsave(filename = "RichnessIndex.png", plot = last_plot(),
-       width = 2800, height = 2520, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 ## Estimate_Richness -------------------------
 # 多様性指数は任意で 
@@ -2117,7 +2148,7 @@ ggsave(filename = "Richness_Shannon_Fungicide.use.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-## Beta Diversity ----------------------------
+# Beta Diversity ----------------------------
 library(vegan)
 library(ggplot2)
 library(phyloseq)
@@ -2130,7 +2161,7 @@ otu_table <- as.data.frame(otu_table(PhyseqData))
 rm(PhyseqData, track)
 
 
-### Vegan  ------------------------------------
+## Vegan  ------------------------------------
 
 # Bray-Curtis距離行列
 bray_dist <- vegdist(otu_table, method = "bray")
@@ -2189,9 +2220,12 @@ adonis2(bray_dist ~ dps, data = pcoa_df, permutations = 999)
 
 cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
 
-### Phyloseq & ape ----------------------------
-#### RareFaction Filtering ---------------------
+
+## RareFaction Filtering ---------------------
+
+# Phyloseq & ape 
 # ライブラリサイズを最小のサンプルに合わせて、RareFaction
+
 physeq_rarefaction <- rarefy_even_depth(PhyseqData, rngseed = 123, verbose = FALSE)
 unifrac_dist <- UniFrac(physeq_rarefaction, weighted = TRUE, normalized = TRUE, parallel = FALSE)
 pcoa_res <- ape::pcoa(unifrac_dist)
@@ -2980,24 +3014,25 @@ f.mahattan
 
 
 # DESeq2 ------------------------------------
+
 library(DESeq2)
 library(ggplot2)
 
-## No Taxa Filtering -------------------------
 
+# No Taxa Filtering 
 rank_names(PhyseqData)
 
-## Bacteriaのみに絞る
+# Bacteriaのみに絞る
 PhyseqData_DESeq2 <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> # Kingdomを"Bacteria"でSubset
     filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
 
-
-### DESeq2 Fungicide.use ---------
+## DESeq2 Fungicide.use ---------
 
 FungicideUse_dds = phyloseq_to_deseq2(PhyseqData_DESeq2, ~ `Fungicide.use`) 
 
-### DESeq()のParameterは、最適な引数を設定すること
+# DESeq()のParameterは、最適な引数を設定すること
+# Wald法を選択
 FungicideUse_dds = DESeq(FungicideUse_dds, test="Wald", fitType="parametric") 
 
 FungicideUse_res <- results(FungicideUse_dds, cooksCutoff = FALSE)
@@ -3005,75 +3040,70 @@ FungicideUse_res <- cbind(as(FungicideUse_res, "data.frame"),
                           as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix"),
                           as(t(otu_table(PhyseqData))[rownames(FungicideUse_res), ], "matrix"))
 
-write.csv(FungicideUse_res,
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/Bac_FungicideUse_res_no_taxa_filtering.csv")
 
-a <- as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix")
+# write.csv(FungicideUse_res,
+#           file = "~/Documents/RStudio/Novogene/250503/export_csv/Bac_FungicideUse_res_no_taxa_filtering.csv")
 
-### 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
+# a <- as(tax_table(PhyseqData)[rownames(FungicideUse_res), ], "matrix")
+
+
+# 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
 FungicideUse_sigtab = FungicideUse_res[which(FungicideUse_res$padj < 0.01), ] 
-
 dim(FungicideUse_sigtab)
 
 
 
-### Plots ------------------------------
+# Plots
 
 library(ggplot2)
 library(scales)
 library(dplyr)
 
 
-### Phylum AscendingOrder Sort in log2FoldChange 
+# Phylum AscendingOrder Sort in log2FoldChange 
 x = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Phylum, function(x) max(x))
 x = sort(x, TRUE)
 FungicideUse_sigtab$Phylum = factor(as.character(FungicideUse_sigtab$Phylum), levels=names(x))
 
-
-### Family AscendingOrder Sort in log2FoldChange 
+# Family AscendingOrder Sort in log2FoldChange 
 y = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Family, function(x) max(x))
 y = sort(y, TRUE)
 FungicideUse_sigtab$Family = factor(as.character(FungicideUse_sigtab$Family), levels=names(y))
 
-
-### Genus AscendingOrder Sort in log2FoldChange 
+# Genus AscendingOrder Sort in log2FoldChange 
 z = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Genus, function(x) max(x))
 z = sort(z, TRUE)
 FungicideUse_sigtab$Genus = factor(as.character(FungicideUse_sigtab$Genus), levels=names(z))
 
 
-
-### padjをlog10へ
+# padjをlog10へ
 FungicideUse_sigtab$log10value <- -log10(FungicideUse_sigtab$padj)
 
-
-### log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
+# log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
 FungicideUse_sigtab$Sign <- ifelse(FungicideUse_sigtab$log2FoldChange < 0, "Enriched", "Depleted")
 
-
-### log2FoldChangeの通常値変換
+# log2FoldChangeの通常値変換
 FungicideUse_sigtab$value <- 2^FungicideUse_sigtab$log2FoldChange
 
-
-#### 行名をASV列として、追加し、順番を変更
+# 行名をASV列として、追加し、順番を変更
 FungicideUse_sigtab$ASV <- rownames(FungicideUse_sigtab)
 FungicideUse_sigtab <- FungicideUse_sigtab |> 
     dplyr::select(ASV, log10value, log2FoldChange, value, Sign, everything())
 
 
-
-### sigtabのcsv保存
-write.csv(FungicideUse_sigtab,
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/Bac_FungicideUse_sigtab_no_taxa_filtering.csv",
-          row.names = FALSE)
-
+# sigtabのcsv保存
+# write.csv(FungicideUse_sigtab,
+#           file = "~/Documents/RStudio/Novogene/250503/export_csv/Bac_FungicideUse_sigtab_no_taxa_filtering.csv",
+#           row.names = FALSE)
 
 
-#### Plots sigtab  --------------------
+## Plots sigtab  --------------------
+
 # ColorPalleteの数を把握
 unique(FungicideUse_sigtab$Phylum)
 unique(FungicideUse_sigtab$Family)
 unique(FungicideUse_sigtab$Genus)
+
 
 # unique(sigtab$Family)に基づいて、colorパレットを設定
 colors_21 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", 
@@ -3087,10 +3117,8 @@ colors_31 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
                "#8BC34A", "#FF5722", "#8E24AA", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", 
                "#FF9800", "#E91E63", "#CDDC39")
 
-##### Y is Family ---------------------------
-###### log2 FoldChange ---------------------
 
-#### in Phylum Colors 
+# log2 FoldChange # in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -3116,16 +3144,13 @@ ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phy
                              title.theme = element_text(face = "bold", size = 20)
         ))
 
-
-ggsave(filename = "DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
+# ggsave(filename = "DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
 
-###### log10 Value ------------------------------
-#### in Phylum Colors 
+# log10 Value # in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -3151,19 +3176,20 @@ ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum,
                              title.theme = element_text(face = "bold", size = 20)
     ))
 
+# ggsave(filename = "DESeq2_Family_log10Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-ggsave(filename = "DESeq2_Family_log10Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-#### Legend Plots in Phylum level
+
+### Legend Plots in Phylum level --------------
 
 library(ggpubr)
 library(cowplot)
 
-#### 余白の調整は難しいため、スクショで対応
 
-#### Phylum Level
+# 余白の調整は難しいため、スクショで対応
+# Phylum Level
 ggdraw(
     get_legend(
         ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum)) +
@@ -3184,7 +3210,8 @@ ggdraw(
                 color = guide_legend(override.aes = list(size = 10))
             )))
 
-#### Family Level
+
+# Family Level
 ggdraw(
     get_legend(
         ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Family)) +
@@ -3206,10 +3233,7 @@ ggdraw(
             )))
 
 
-
-###### Value -------------------------------------
-
-#### in Phylum Colors 
+# Normal-Value # in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -3236,19 +3260,14 @@ ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shap
     ))
 
 
-ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+# ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
 
-
-
-##### X is Genus ----------------------------
-
-###### log2 FoldChange ----------------------------
-
-####  Coloring at Family 
+# X is Genus 
+# log2 FoldChange #  Coloring at Family 
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log2FoldChange), color = Family, shape = Sign)) +
     geom_point(size = 10, alpha = 0.7) +
     geom_text(aes(label = ASV), vjust = -1, size = 6) + 
@@ -3280,10 +3299,7 @@ ggsave(filename = "DESeq2_Genus_log2FoldChange_ColorFamily_sigtab_Plots.png", pl
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-###### log10 Value -------------------------------
-
-
-#### Coloring at Family
+# log10 Value # Coloring at Family
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, shape = Sign)) +
     geom_point(size = 10, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 5) + 
@@ -3309,13 +3325,13 @@ ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, 
                              title.theme = element_text(face = "bold", size = 20)
         ))
 
+# ggsave(filename = "DESeq2_Genus_log10Value_ColorFamily_sigtab_Plots.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-ggsave(filename = "DESeq2_Genus_log10Value_ColorFamily_sigtab_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-#### in Phylum Colors & value
+# in Phylum Colors & value
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -3341,20 +3357,16 @@ ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shap
                              title.theme = element_text(face = "bold", size = 20)
         ))
 
-
-ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
+# ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-
-###### Legend Plots ------------------------------
+### Legend Plots in Family level --------------
 
 library(ggpubr)
 library(cowplot)
 
-#### 余白の調整は難しいため、スクショで対応
 ggdraw(
     get_legend(
         ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum)) +
@@ -3376,27 +3388,24 @@ ggdraw(
             )))
 
 
-
-#### Plots res ---------------------------------
-
+## Plots res ---------------------------------
 
 FungicideUse_res$log10value <- -log10(FungicideUse_res$padj)
 FungicideUse_res$Sign <- ifelse(FungicideUse_res$log2FoldChange < 0, "Enriched", "Depleted")
 FungicideUse_res$ASV <- rownames(FungicideUse_res)
 
-### log2FoldChangeの通常値変換
+# log2FoldChangeの通常値変換
 FungicideUse_res$value <- 2^FungicideUse_res$log2FoldChange
 
-
-
-#### 行名をASV列として、追加し、順番を変更
+# 行名をASV列として、追加し、順番を変更
 FungicideUse_res <- FungicideUse_res |> 
     select(ASV, log10value, log2FoldChange, value, Sign, everything())
 
-### sigtabのcsv保存
-write.csv(FungicideUse_res,
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv",
-          row.names = FALSE)
+
+# sigtabのcsv保存
+# write.csv(FungicideUse_res,
+#           file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv",
+#           row.names = FALSE)
 
 
 colnames(FungicideUse_res)
@@ -3404,7 +3413,8 @@ unique(FungicideUse_res$Family)
 unique(FungicideUse_res$Genus)
 
 
-### Family数に応じて、Colorを設定
+
+# Family数に応じて、Colorを設定
 colors_40 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
                "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
                "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
@@ -3416,8 +3426,9 @@ colors_29 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33",
                "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
                "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD")
 
-### log10 Value Plots in Family Colors
-### → 範囲が広すぎて、Plotが見にくいため、sigtabを使用すること
+
+# log10 Value Plots in Family Colors
+# → 範囲が広すぎて、Plotが見にくいため、sigtabを使用すること
 ggplot(FungicideUse_res, aes(x = Family, y = abs(log10value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -3446,6 +3457,8 @@ ggplot(FungicideUse_res, aes(x = Family, y = abs(log10value), color = Phylum, sh
 ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
 
 
 # ASV Abundunce Plots： -----------------------------------
@@ -3535,16 +3548,14 @@ ggsave(filename = "Sigtab$ASVs_Enriched_Absolute_Abundance_dps_Plots.png", plot 
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-
-
-
-## sigtab$ASV → prune_taxa(PhyseqData) -------
+# sigtab$ASV → prune_taxa(PhyseqData)
 sigtab_PhyseqData <- prune_taxa(FungicideUse_sigtab$ASV, PhyseqData)
 otu_mat <- t(as(otu_table(sigtab_PhyseqData), Class = "matrix"))
 tax_mat <- as(tax_table(sigtab_PhyseqData), Class = "matrix")
 otu_table <- cbind(otu_mat, tax_mat)
 write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab_otu_table.csv",
           row.names = TRUE)
+
 
 # venn diagram --------------
 

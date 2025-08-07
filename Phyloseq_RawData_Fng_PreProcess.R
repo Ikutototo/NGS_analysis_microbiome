@@ -1,19 +1,14 @@
-
 # Setting -----------------------------------
-
+setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
 
 ls()
 rm(list = ls())
 dev.off()
 
-setwd("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome")
-
 library(phyloseq)
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Fungi/Input/PhyseqData_Fng.RData")
 
-dev.off()
-
-cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
+rm(MetaData, track)
 
 # Exports_OTU_Table -------------------------
 ## ASVs Tableの生成と出力
@@ -107,7 +102,7 @@ write.csv(data.frame(Sequence = refseq(PhyseqData)[taxa_names(subset_taxa(Physeq
 
 
 # RelativeAbundunce -------------------------
-## Color_Setting -----------------------------
+# Color_Setting 
 
 library(phyloseq)
 library(ggplot2)
@@ -214,13 +209,9 @@ ggplot(PhyseqData_Phylum, aes(x = SampleName, y = Abundance, fill = Phylum)) +
           panel.grid.minor = element_blank(),
           legend.position = "none")
 
-
-
-ggsave(filename = "Fng_Relative_abundance_Phylum_SampleName.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
-
+# ggsave(filename = "Fng_Relative_abundance_Phylum_SampleName.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 ggdraw(get_legend(
     ggplot(PhyseqData_Phylum, aes(x = dps, y = Abundance, fill = Phylum)) + 
@@ -240,6 +231,53 @@ ggdraw(get_legend(
             legend.background = element_rect(fill = "gray80"),
         )
 ))
+
+### flextable::flextable() --------------------
+# 250809_Table(Phylum)
+library(flextable)
+
+PhyseqData_Phylum <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Phylum") %>%                        # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Phylum))
+
+table_df <- PhyseqData_Phylum |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Phylum) |> 
+    group_by(Phylum, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+flextable::flextable(as.data.frame(table_df))
+
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Phylum <- PhyseqData_Phylum |> 
+    group_by(Phylum)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Phylum)
+
+table_df$Phylum <- factor(table_df$Phylum, levels = Ascending_Phylum)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Phylum)
+
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
 
 
 ## Class Level -------------------------------
@@ -324,6 +362,53 @@ ggdraw(get_legend(
         )
 ))
 
+### flextable::flextable() --------------------
+# 250809_Table(Class)
+library(flextable)
+
+PhyseqData_Class <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Class") %>%                        # agglomerate at Class level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Class))
+
+table_df <- PhyseqData_Class |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Class) |> 
+    group_by(Class, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+flextable::flextable(as.data.frame(table_df))
+
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Class <- PhyseqData_Class |> 
+    group_by(Class)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Class)
+
+table_df$Class <- factor(table_df$Class, levels = Ascending_Class)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Class)
+
+table_df$Class <- gsub("^c__", "", table_df$Class)
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
 
 
 ## Order Level -------------------------------
@@ -403,6 +488,54 @@ ggdraw(get_legend(
               legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
               legend.background = element_rect(fill = "gray80"))
     ))
+
+### flextable::flextable() --------------------
+# 250809_Table(Order)
+library(flextable)
+
+PhyseqData_Order <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Order") %>%                        # agglomerate at Order level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Order))
+
+table_df <- PhyseqData_Order |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Order) |> 
+    group_by(Order, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+flextable::flextable(as.data.frame(table_df))
+
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Order <- PhyseqData_Order |> 
+    group_by(Order)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Order)
+
+table_df$Order <- factor(table_df$Order, levels = Ascending_Order)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Order)
+
+table_df$Order <- gsub("^o__", "", table_df$Order)
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
 
 
 ## Family Level  -----------------------------
@@ -488,8 +621,57 @@ ggdraw(get_legend(
               legend.background = element_rect(fill = "gray80"))
 ))
 
+### flextable::flextable() --------------------
+# 250809_Table(Family)
+library(flextable)
+
+PhyseqData_Family <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Family") %>%                        # agglomerate at Family level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Family))
+
+table_df <- PhyseqData_Family |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Family) |> 
+    group_by(Family, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+flextable::flextable(as.data.frame(table_df))
+
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Family <- PhyseqData_Family |> 
+    group_by(Family)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Family)
+
+table_df$Family <- factor(table_df$Family, levels = Ascending_Family)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Family)
+
+table_df$Family <- gsub("^f__", "", table_df$Family)
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
 
 ## Genus Level  ------------------------------
+
 PhyseqData_Genus <- PhyseqData_Fng  |> 
     tax_glom(taxrank = "Genus") |> # Genusで統合                     
     transform_sample_counts(function(x) {x/sum(x)} )  |>   
@@ -572,126 +754,263 @@ ggdraw(get_legend(
               legend.background = element_rect(fill = "gray80"))
 ))
 
-# Top 50 Filtering --------------------------
+### flextable::flextable() --------------------
+# 250809_Table(Genus)
+library(flextable)
+library(dplyr)
 
-# Selects Top 50 
-top50_taxa <- names(sort(taxa_sums(PhyseqData), decreasing = TRUE)[1:50])
-prune_taxa(top_taxa, PhyseqData)
+PhyseqData_Genus <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Genus") %>%                         # agglomerate at Genus level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    # filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Genus))
+
+table_df <- PhyseqData_Genus |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Genus) |> 
+    group_by(Genus, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
 
 
 
-# Transform sample counts -------------------
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 0.1)
 
-PhyseqData_RA <- transform_sample_counts(PhyseqData, function(x) 100* x / sum(x))
-PhyseqData_log10 <- transform_sample_counts(PhyseqData, log)
+Ascending_Genus <- PhyseqData_Genus |> 
+    group_by(Genus)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Genus)
+
+table_df$Genus <- factor(table_df$Genus, levels = Ascending_Genus)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Genus)
+
+table_df$Genus <- gsub("^g__", "", table_df$Genus)
+
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
+unique(table_df$Genus)
+
+#### Filter_Genus -----------------------------
+
+# 着目したい属のみを指定
+table_df |> 
+    dplyr::filter(Genus %in% c("Fungi_gen_Incertae_sedis", "Penicillium",
+                               "Ascomycota_gen_Incertae_sedis", "Aspergillus", 
+                               "Magnaporthiopsis", "Colletotrichum", "Curvularia",
+                               "Fusarium", "Dactylonectria", "Trichoderma",
+                               "Glomus", "Mucor", "Talaromyces")) |> 
+    flextable::flextable() |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
 
 
 
-# Plot_Relative_Abundunce -------------------
+## Species Level  ------------------------------
 
-# Family Level 
+PhyseqData_Species <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Species") |> # Speciesで統合                     
+    transform_sample_counts(function(x) {x/sum(x)} )  |>   
+    psmelt()  |>                                           
+    dplyr::filter(Abundance > 0.01)  |>                           
+    dplyr::arrange(desc(Species))
 
-## Gathering dps
-ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+
+unique(psmelt(PhyseqData_Fng)$Species)
+
+length(unique(PhyseqData_Species$Species))
+unique(PhyseqData_Species$Species)
+
+
+Descending_Species <- PhyseqData_Species  |> 
+    dplyr::group_by(Species)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Species)
+
+PhyseqData_Species$Species <- factor(PhyseqData_Species$Species, levels = Descending_Species)
+
+
+ggplot(PhyseqData_Species, aes(x = dps, y = Abundance, fill = Species)) + 
+    geom_bar(stat = "identity", position = "fill", width = 0.8) +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 0.7, keyheight = 1.45)) +
     scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Family > 1%) \n") +
-    ggtitle("Relative abundance")
+    labs(caption = " Relative Abundunce Species Level ") +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Species > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
 
-ggsave(filename = "Relative_abundance_Family.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
-
-## In Sample.Name
-ggplot(PhyseqData_Family, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
-    scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Family > 1%) \n") +
-    ggtitle("Relative abundance")
-
-ggsave(filename = "Relative_abundance_Family_SampleName.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
-
-
-# Genus Level 
-
-## Gathering dps
-ggplot(PhyseqData_Genus, aes(x = dps, y = Abundance, fill = Genus)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
-    scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Genus > 1%) \n") +
-    ggtitle("Relative abundance")
-
-ggsave(filename = "Relative_abundance_Genus.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
-
-## In Sample.Name
-ggplot(PhyseqData_Genus, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
-    geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = colors) +
-    theme(axis.title.x = element_blank()) + # Remove x axis title
-    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
-    scale_y_continuous(labels = percent) +
-    xlab("days post Fungicide Inoculum") +
-    ylab("Relative Abundance (Genus > 1%) \n") +
-    ggtitle("Relative abundance")
-
-ggsave(filename = "Relative_abundance_Genus_SampleName.png", plot = last_plot(),
-       width = 2000, height = 1800, dpi = 300, units = "px",
-       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
-
-
-
-## Top50_Plot_Relative_Abundunce -------------
-
-### 前処理無し → 存在量の可視化
-plot_bar(PhyseqData, x = "Sample.Name", fill = "Phylum") + scale_fill_igv()
-
-colnames(psmelt(PhyseqData)) 
-
-### Visualize patterns (scatterplot)
-psmelt(PhyseqData) |> 
-    select(OTU, Sample, Abundance, dps) |> 
-    filter(OTU == top50_taxa[1]) |> # 全Sampleで、最も存在量が多いASVs
-    mutate(dps = factor(dps)) |> 
-    (\(df) ggplot(df, aes(y = Abundance, x = dps)) + # 無名関数
-         geom_boxplot(outlier.shape = NA, width = 0.2) +
-         geom_jitter(height = 0, width = 0.2))()
-
-
-# Exports_OTU_Table -------------------------
-## ASVs Tableの生成と出力
-otu_mat <- t(as(otu_table(PhyseqData_Fng), Class = "matrix"))
-tax_mat <- as(tax_table(PhyseqData_Fng), Class = "matrix")
-otu_table <- cbind(otu_mat, tax_mat)
-write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_otu_table.csv",
-          row.names = TRUE)
-
-## シングルトン有無の確認
-sum(as(otu_table(PhyseqData_Fng), Class = "matrix") == 1)
-tail(phyloseq::taxa_sums(PhyseqData_Fng))
-plot_richness(PhyseqData_Fng, nrow = 3)
-
-ggsave(filename = "RichnessIndex.png", plot = last_plot(),
-       width = 2800, height = 2520, dpi = 300, units = "px",
+ggsave(filename = "Fng_Relative_abundance_Species.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
+ggplot(PhyseqData_Species, aes(x = SampleName, y = Abundance, fill = Species)) + 
+    geom_bar(stat = "identity", position = "fill", width = 0.8) +
+    scale_fill_manual(values = colors_40) +
+    guides(fill = guide_legend(reverse = F, keywidth = 0.7, keyheight = 1.45)) +
+    scale_y_continuous(labels = percent) +
+    labs(caption = " Relative Abundunce Species Level ") +
+    xlab("Days post Fungicide") +
+    ylab("Relative Abundance (Species > 1%) \n") +
+    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+          axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold", vjust = -1, hjust = 0.4),
+          axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+          axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+          panel.grid.minor = element_blank(),
+          legend.position = "none",
+          plot.caption = element_text(size = 20, color = "gray20"))
+
+
+ggsave(filename = "Fng_Relative_abundance_Species_SampleName.png", plot = last_plot(),
+       width = 4160, height = 3210, dpi = 300, units = "px",
+       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
+### Legend Plots
+ggdraw(get_legend(
+    ggplot(PhyseqData_Species, aes(x = dps, y = Abundance, fill = Species)) + 
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = colors_40) +
+        guides(fill = guide_legend(reverse = FALSE, keywidth = 0.7, 
+                                   keyheight = 1.45, override.aes = list(size = 7),
+                                   ncol = 2)) +
+        theme(axis.title = element_text(size = 25, face = "bold", color = "black"),
+              axis.text = element_text(size = 10, color = "black"),
+              panel.grid.minor = element_blank(),
+              legend.text = element_text(size = 22, color = "black", face = "bold.italic"),
+              legend.title = element_text(size = 25, face = "bold", color = "#E91E63", hjust = 0.5),
+              legend.background = element_rect(fill = "gray80"))
+))
+
+### flextable::flextable() --------------------
+# 250809_Table(Species)
+library(flextable)
+
+PhyseqData_Species <- PhyseqData_Fng  |> 
+    tax_glom(taxrank = "Species") %>%                         # agglomerate at Species level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    # filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Species))
+
+table_df <- PhyseqData_Species |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Species) |> 
+    group_by(Species, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 0.1)
+
+Ascending_Species <- PhyseqData_Species |> 
+    group_by(Species)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Species)
+
+table_df$Species <- factor(table_df$Species, levels = Ascending_Species)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Species)
+
+table_df$Species <- gsub("^s__", "", table_df$Species)
+
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
+unique(table_df$Species)
+
+# TaxaAbundunce -----------------------------
+# DESeq2や相対存在量の変動を通じて、大きく変動した分類群をピックアップし、絶対存在量で可視化
+
+## "Colletotrichum" (Genus)----------------
+
+library(ggplot2)
+library(dplyr)
+
+PhyseqData_Colletotrichum <- PhyseqData_Fng  |> 
+    subset_taxa( == "Colletotrichum") |> 
+    tax_glom(taxrank = "Genus") |>                        
+    psmelt()  |>                                           
+    dplyr::arrange(desc(Order))
+
+Descending <- PhyseqData_Burkholderiales  |> 
+    dplyr::group_by(Genus)  |> 
+    dplyr::summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    dplyr::arrange(total_abundance)  |> 
+    dplyr::pull(Genus)
+
+PhyseqData_Burkholderiales$Genus <- factor(PhyseqData_Burkholderiales$Genus, levels = Descending)
+
+
+
+ggplot(PhyseqData_Burkholderiales, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c(
+        "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
+        "#e6ab02", "#a6761d", "#666666", "#a6cee3", "#1f78b4",
+        "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f",
+        "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928",
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+        "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+        "#ccebc5", "#ffed6f", "#a9a9a9", "#e0bbff", "#ffb3e6",
+        "#c2c2f0", "#ffb347", "#c4e17f", "#f77979", "#b3b3cc",
+        "#98fb98", "#dda0dd", "#f0e68c", "#20b2aa", "#ff6347",
+        "#4169e1", "#32cd32", "#ff1493", "#00ced1", "#ffa500"
+    )) +
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1.45)) +
+    xlab("Days post Fungicide") +
+    ylab("Absolute Abundance") +
+    labs(caption = "Order == Burkholderiales + tax_glom(taxrank = Genus)") +
+    theme(
+        axis.title.x = element_text(size = 25, colour = "#E91E63", face = "bold", vjust = 1),
+        axis.title.y = element_text(size = 24, colour = "#E91E63", face = "bold"),
+        axis.text.x =  element_text(size = 30, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 25, color = "black", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray20", hjust = -5),
+        panel.grid.minor = element_blank())
+
+
+
 # Richness Index ----------------------------
+
 library(phyloseq)
 library(dplyr)
 library(ggplot2)
@@ -804,9 +1123,10 @@ ggsave(filename = "Fng_ObservedASVs.png", plot = last_plot(),
 #     xlab("dps") +
 #     theme_minimal()
 
-## Compare_RichnessIndex ---------------------
 
-### Checking Normality&EquallyDispersed -------
+# Compare_RichnessIndex ---------------------
+
+## Checking Normality&EquallyDispersed -------
 library(car)
 
 # QQ Plots
@@ -822,7 +1142,7 @@ leveneTest(Shannon ~ dps, data = alpha_df)
 
 # → Sample数が3つと小さいため、NonParametricで実施する
 
-### RichnessIndex StatisticalProcessing -------
+## RichnessIndex StatisticalProcessing -------
 
 compare_means(Shannon ~ dps, data = alpha_df,
               method = "wilcox.test", label = "p.format")
@@ -1061,6 +1381,7 @@ ggsave(filename = "Richness_Shannon_FungicideUse.png", plot = last_plot(),
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
+
 # Beta Diversity ----------------------------
 library(vegan)
 library(ggplot2)
@@ -1071,7 +1392,6 @@ load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq
 
 otu_table <- as.data.frame(otu_table(PhyseqData_Fng))
 rm(PhyseqData_Fng, track)
-
 
 ## Vegan  ------------------------------------
 
@@ -1207,6 +1527,7 @@ ggplot(rare_res, aes(x = Depth, y = Shannon, group = interaction(Sample, Rep), c
 cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
 
 
+
 # Nonmetric Multidimensional Scaling --------
 
 set.seed(1234)
@@ -1219,61 +1540,6 @@ plot_ordination(PhyseqData, ps_bray, color = "dps", shape = "dps") +
     xlab("Axis 1") +
     ylab("Axis 2") + 
     ggtitle("NMDS")
-
-
-
-# ColorPallete ------------------------------
-
-colors <- c(
-    "#1b9e77",  # 緑系（濃）
-    "#d95f02",  # オレンジ系
-    "#7570b3",  # 青紫系
-    "#e7298a",  # ピンク系（明）
-    "#66a61e",  # 黄緑系
-    "#e6ab02",  # 黄土色
-    "#a6761d",  # 茶色
-    "#666666",  # グレー（濃）
-    
-    "#8dd3c7",  # 薄い青緑
-    "#ffffb3",  # 薄い黄色
-    "#bebada",  # 薄い紫
-    "#fb8072",  # 薄い赤
-    "#80b1d3",  # 青
-    "#fdb462",  # オレンジ
-    "#b3de69",  # 明るい緑
-    "#fccde5",  # 薄いピンク
-    
-    "#bc80bd",  # 紫
-    "#ccebc5",  # ミントグリーン
-    "#ffed6f",  # レモンイエロー
-    "#7fc97f",  # 落ち着いた緑
-    "#fdc086",  # 柔らかいオレンジ
-    "#ffff99",  # 明るい黄
-    "#386cb0",  # 紺青
-    "#f0027f",  # ビビッドピンク
-    
-    "#bf5b17",  # 赤茶
-    "#6a3d9a",  # 濃い紫
-    "#cab2d6",  # 淡いラベンダー
-    "#ff7f00",  # 鮮やかなオレンジ
-    "#b2df8a",  # 明るい緑
-    "#a6cee3",  # 明るい水色
-    "#fb9a99",  # ソフトな赤
-    "#1f78b4",  # 落ち着いた青
-    "#33a02c",  # 深緑
-    "#b15928"   # 焦げ茶
-)
-
-
-color_v2 <- c(
-    "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", 
-    "#BCBD22", "#17BECF", "#F0E442", "#9E14D2", "#7D8B33", "#B5F56D", "#3F51B5", "#D32F2F", 
-    "#0288D1", "#7B1FA2", "#388E3C", "#FBC02D", "#0288D1", "#8BC34A", "#FF5722", "#8E24AA", 
-    "#FFEB3B", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", "#FF9800", "#E91E63", "#9E9E9E", 
-    "#CDDC39"
-)
-
-
 
 
 # MicrobiotaProcessMethods ------------------
@@ -1879,30 +2145,22 @@ f.mahattan <- mpdata |>
 
 f.mahattan
 
-
-
-
-
-
 # DESeq2 ------------------------------------
 library(DESeq2)
 library(ggplot2)
 
-
-## No Taxa Filtering -------------------------
-
+# No Taxa Filtering
 rank_names(PhyseqData_Fng)
 
-## Filtering 存在量 > 100 Reads
+# Filtering 存在量 > 100 Reads
 PhyseqData_DESeq2 <- PhyseqData_Fng  |> 
     filter_taxa(function(x) mean(x) > 100, TRUE) # Read数が約100000であり、0.1%のReads数 
 
-
-### DESeq2 Fungicide.use ---------
+## DESeq2 Fungicide.use ---------
 
 FungicideUse_dds = phyloseq_to_deseq2(PhyseqData_DESeq2, ~ `Fungicide.use`) 
 
-### DESeq()のParameterは、最適な引数を設定すること
+# DESeq()のParameterは、最適な引数を設定すること
 FungicideUse_dds = DESeq(FungicideUse_dds, test="Wald", fitType="parametric") 
 
 FungicideUse_res <- results(FungicideUse_dds, cooksCutoff = FALSE)
@@ -1911,66 +2169,56 @@ FungicideUse_res <- cbind(as(FungicideUse_res, "data.frame"),
                           as(tax_table(PhyseqData_Fng)[rownames(FungicideUse_res), ], "matrix"),
                           as(t(otu_table(PhyseqData_Fng))[rownames(FungicideUse_res), ], "matrix"))
 
-write.csv(as(FungicideUse_res, "data.frame"),
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_FungicideUse_res_no_taxa_filtering.csv")
+# write.csv(as(FungicideUse_res, "data.frame"),
+#           file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_FungicideUse_res_no_taxa_filtering.csv")
 
 
-### 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
+# 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
 FungicideUse_sigtab = FungicideUse_res[which(FungicideUse_res$padj < 0.01), ] 
-
-
 dim(FungicideUse_sigtab)
 
 
-### Plots ------------------------------
+# Plots
 
 library(ggplot2)
 library(scales)
 library(dplyr)
 
-
-### Phylum AscendingOrder Sort in log2FoldChange 
+# Phylum AscendingOrder Sort in log2FoldChange 
 x = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Phylum, function(x) max(x))
 x = sort(x, TRUE)
 FungicideUse_sigtab$Phylum = factor(as.character(FungicideUse_sigtab$Phylum), levels=names(x))
 
-
-### Family AscendingOrder Sort in log2FoldChange 
+# Family AscendingOrder Sort in log2FoldChange 
 y = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Family, function(x) max(x))
 y = sort(y, TRUE)
 FungicideUse_sigtab$Family = factor(as.character(FungicideUse_sigtab$Family), levels=names(y))
 
-
-### Genus AscendingOrder Sort in log2FoldChange 
+# Genus AscendingOrder Sort in log2FoldChange 
 z = tapply(FungicideUse_sigtab$log2FoldChange, FungicideUse_sigtab$Genus, function(x) max(x))
 z = sort(z, TRUE)
 FungicideUse_sigtab$Genus = factor(as.character(FungicideUse_sigtab$Genus), levels=names(z))
 
 
-
-### padjをlog10へ
+# padjをlog10へ
 FungicideUse_sigtab$log10value <- -log10(FungicideUse_sigtab$padj)
 
-
-### log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
+# log2FoldChange < 0 → Fungicide.use(Bac4~9)において、存在量が増加したことを示す
 FungicideUse_sigtab$Sign <- ifelse(FungicideUse_sigtab$log2FoldChange < 0, "Enriched", "Depleted")
 
-
-### log2FoldChangeの通常値変換
+# log2FoldChangeの通常値変換
 FungicideUse_sigtab$value <- 2^FungicideUse_sigtab$log2FoldChange
 
-
-#### 行名をASV列として、追加し、順番を変更
+# 行名をASV列として、追加し、順番を変更
 FungicideUse_sigtab$ASV <- rownames(FungicideUse_sigtab)
 FungicideUse_sigtab <- FungicideUse_sigtab |> 
     select(ASV, log10value, log2FoldChange, value, Sign, everything())
 
+# sigtabのcsv保存
+# write.csv(FungicideUse_sigtab,
+#           file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_FungicideUse_sigtab_no_taxa_filtering.csv",
+#           row.names = FALSE)
 
-
-### sigtabのcsv保存
-write.csv(FungicideUse_sigtab,
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_FungicideUse_sigtab_no_taxa_filtering.csv",
-          row.names = FALSE)
 
 # ASVs-table → sigtab subset
 sigtab_subset_PhyseqData_Fng <- prune_taxa(FungicideUse_sigtab$ASV, PhyseqData_Fng)
@@ -1986,11 +2234,11 @@ otu_table[, "Family"] <- gsub("^f__", "", otu_table[, "Family"])
 otu_table[, "Genus"] <- gsub("^g__", "", otu_table[, "Genus"])
 otu_table[, "Species"] <- gsub("^s__", "", otu_table[, "Species"])
 
-write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_SigtabSubset_otu_table.csv",
-          row.names = TRUE)
+# write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/Fng_SigtabSubset_otu_table.csv",
+#           row.names = TRUE)
 
 
-#### Plots sigtab  --------------------
+## Plots sigtab  --------------------
 # ColorPalleteの数を把握
 unique(FungicideUse_sigtab$Phylum)
 unique(FungicideUse_sigtab$Family)
@@ -2008,10 +2256,11 @@ colors_31 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
                "#8BC34A", "#FF5722", "#8E24AA", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", 
                "#FF9800", "#E91E63", "#CDDC39")
 
-#### X is Family ---------------------------
 
-# log2 FoldChange 
-# in Phylum Colors 
+
+# X is Family
+# log2 FoldChange # in Phylum Colors 
+
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
     geom_point(size = 7, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2044,8 +2293,7 @@ ggsave(filename = "Fng_DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png
 
 
 
-# log10 Value
-# in Phylum Colors 
+# log10 Value # in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2075,8 +2323,6 @@ ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum,
 ggsave(filename = "Fng_DESeq2_Family_log10Value_ColorPhylum_sigtab_Plots.png", plot = last_plot(),
        width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
-
 
 
 # Legend Plots in Phylum level
@@ -2137,10 +2383,7 @@ ggdraw(get_legend(
 ))
 
 
-
-
-#### Value -------------------------------------
-
+## Value -------------------------------------
 # in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
@@ -2172,14 +2415,8 @@ ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = las
        width = 4160, height = 3210, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
-
-
-
-
-#### X is Genus ----------------------------
-
-# log2 FoldChange
-# Coloring at Family 
+## X is Genus ----------------------------
+# log2 FoldChange # Coloring at Family 
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log2FoldChange), color = Family, shape = Sign)) +
     geom_point(size = 8, alpha = 0.7) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2226,8 +2463,9 @@ ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log2FoldChange), color = Fami
 #        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-# log10 Value
-# Coloring at Family
+
+
+# log10 Value # Coloring at Family
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, shape = Sign)) +
     geom_point(size = 8, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -0.6, size = 5) + 
@@ -2269,6 +2507,7 @@ ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, 
     #     shape = guide_legend(override.aes = list(size = 5),
     #                          title.theme = element_text(face = "bold", size = 20)
     #     ))
+
 
 # 250806_Black&White Colour
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), shape = Sign)) +
@@ -2355,11 +2594,7 @@ ggdraw(
             )))
 
 
-
-
-
-### Plots res ---------------------------------
-
+## Plots res ---------------------------------
 
 FungicideUse_res$log10value <- -log10(FungicideUse_res$padj)
 FungicideUse_res$Sign <- ifelse(FungicideUse_res$log2FoldChange < 0, "Enriched", "Depleted")
@@ -2368,17 +2603,14 @@ FungicideUse_res$ASV <- rownames(FungicideUse_res)
 # log2FoldChangeの通常値変換
 FungicideUse_res$value <- 2^FungicideUse_res$log2FoldChange
 
-
-
 # 行名をASV列として、追加し、順番を変更
 FungicideUse_res <- FungicideUse_res |> 
     select(ASV, log10value, log2FoldChange, value, Sign, everything())
 
 # sigtabのcsv保存
-write.csv(FungicideUse_res,
-          file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv",
-          row.names = FALSE)
-
+# write.csv(FungicideUse_res,
+#           file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv",
+#           row.names = FALSE)
 
 colnames(FungicideUse_res)
 unique(FungicideUse_res$Family)
@@ -2396,6 +2628,7 @@ colors_29 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33",
                "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
                "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
                "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD")
+
 
 # log10 Value Plots in Family Colors
 # → 範囲が広すぎて、Plotが見にくいため、sigtabを使用すること
@@ -2424,11 +2657,9 @@ ggplot(FungicideUse_res, aes(x = Family, y = abs(log10value), color = Phylum, sh
                              title.theme = element_text(face = "bold", size = 20)
         ))
 
-ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", plot = last_plot(),
-       width = 2800, height = 2520, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
-
+# ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", plot = last_plot(),
+#        width = 2800, height = 2520, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
 # ASV Abundunce Plots： -----------------------------------
@@ -2553,9 +2784,6 @@ ggsave(filename = "Fng_Sigtab$ASVs_Enriched_Absolute_Abundance_dps_Plots.png", p
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-
-    
-    
 ## sigtab$ASV → prune_taxa(PhyseqData) -------
 sigtab_PhyseqData <- prune_taxa(FungicideUse_sigtab$ASV, PhyseqData)
 otu_mat <- t(as(otu_table(sigtab_PhyseqData), Class = "matrix"))
@@ -2563,6 +2791,8 @@ tax_mat <- as(tax_table(sigtab_PhyseqData), Class = "matrix")
 otu_table <- cbind(otu_mat, tax_mat)
 write.csv(x = otu_table, file = "~/Documents/RStudio/Novogene/250503/export_csv/sigtab_otu_table.csv",
           row.names = TRUE)
+
+
 
 # venn diagram --------------
 
@@ -2590,8 +2820,6 @@ plot(euler(s4, shape = "ellipse"),
      quantities = list(font = 2, col = "black"),
      fills = list(fill = c("tomato", "steelblue"), alpha = 0.6),
      labels = list(font = 2, col = "black"))
-
-
 
 
 # cladogram ---------------------------------
@@ -2848,6 +3076,7 @@ ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) + geom_point(size=6
 
 # Others ------------------------------------
 
+
 meltphyseq = psmelt(ps3)
 
 meltphyseq_v1 <- meltphyseq |> filter(Phylum == "Pseudomonadota")
@@ -2902,52 +3131,94 @@ plot_bar(ps_Pseudomonadota, fill = "Genus")
 # Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
 # physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
 
+# Selects Top 50 
+top50_taxa <- names(sort(taxa_sums(PhyseqData), decreasing = TRUE)[1:50])
+prune_taxa(top_taxa, PhyseqData)
+
+
+PhyseqData_RA <- transform_sample_counts(PhyseqData, function(x) 100* x / sum(x))
+PhyseqData_log10 <- transform_sample_counts(PhyseqData, log)
+
+
+# Family Level 
+
+## Gathering dps
+ggplot(PhyseqData_Family, aes(x = dps, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) +
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    ggtitle("Relative abundance")
+
+ggsave(filename = "Relative_abundance_Family.png", plot = last_plot(),
+       width = 2000, height = 1800, dpi = 300, units = "px",
+       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
+
+## In Sample.Name
+ggplot(PhyseqData_Family, aes(x = Sample.Name, y = Abundance, fill = Family)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) +
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Family > 1%) \n") +
+    ggtitle("Relative abundance")
+
+ggsave(filename = "Relative_abundance_Family_SampleName.png", plot = last_plot(),
+       width = 2000, height = 1800, dpi = 300, units = "px",
+       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
+
+
+# Genus Level 
+
+## Gathering dps
+ggplot(PhyseqData_Genus, aes(x = dps, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) +
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    ggtitle("Relative abundance")
+
+ggsave(filename = "Relative_abundance_Genus.png", plot = last_plot(),
+       width = 2000, height = 1800, dpi = 300, units = "px",
+       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
+
+## In Sample.Name
+ggplot(PhyseqData_Genus, aes(x = Sample.Name, y = Abundance, fill = Genus)) + 
+    geom_bar(stat = "identity", position = "fill") +
+    scale_fill_manual(values = colors) +
+    theme(axis.title.x = element_blank()) + # Remove x axis title
+    guides(fill = guide_legend(reverse = F, keywidth = 1, keyheight = 1)) +
+    scale_y_continuous(labels = percent) +
+    xlab("days post Fungicide Inoculum") +
+    ylab("Relative Abundance (Genus > 1%) \n") +
+    ggtitle("Relative abundance")
+
+ggsave(filename = "Relative_abundance_Genus_SampleName.png", plot = last_plot(),
+       width = 2000, height = 1800, dpi = 300, units = "px",
+       path = "~/Library/CloudStorage/GoogleDrive-saito2022@patholab-meiji.jp/My Drive/芝草/NGS_consignment/Novogene/Data/NGS_Analysis/Figure")
 
 
 
+## Top50_Plot_Relative_Abundunce -------------
 
+### 前処理無し → 存在量の可視化
+plot_bar(PhyseqData, x = "Sample.Name", fill = "Phylum") + scale_fill_igv()
 
+colnames(psmelt(PhyseqData)) 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### Visualize patterns (scatterplot)
+psmelt(PhyseqData) |> 
+    select(OTU, Sample, Abundance, dps) |> 
+    filter(OTU == top50_taxa[1]) |> # 全Sampleで、最も存在量が多いASVs
+    mutate(dps = factor(dps)) |> 
+    (\(df) ggplot(df, aes(y = Abundance, x = dps)) + # 無名関数
+         geom_boxplot(outlier.shape = NA, width = 0.2) +
+         geom_jitter(height = 0, width = 0.2))()

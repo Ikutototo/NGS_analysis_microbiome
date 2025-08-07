@@ -973,24 +973,24 @@ alpha_df |>
     ylab("Alpha-Diversity") +
     theme(
         legend.position = "right", 
-        legend.title = element_text(size = 16, face = "bold", color = "black"),
-        legend.text = element_text(size = 14, face = "plain", color = "black"),
-        strip.text = element_text(size = 15, face = "bold", color = "black"),
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20, face = "plain", color = "black"),
+        strip.text = element_text(size = 20, face = "bold", color = "black"),
         strip.background = element_rect(fill = "lightgray", color = "gray50"), 
-        axis.title.x = element_text(size = 20, colour = "black", face = "bold"),
-        axis.title.y = element_text(size = 20, colour = "black", face = "bold"),
-        axis.text.x =  element_text(size = 16, color = "black", face = "bold"),
-        axis.text.y = element_text(size = 14, color = "black", face = "bold"),
+        axis.title.x = element_text(size = 23, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 23, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
         panel.background = element_rect(fill = "gray90"),
         panel.grid.major = element_line(color = "gray80"), 
         panel.grid.minor = element_line(color = "gray90")) + 
-    geom_jitter(aes(color = SampleName), width = 0.08, size = 3, alpha = 0.8, show.legend = FALSE) +
-    stat_pvalue_manual(stat_test_dps, label = " {p.signif}", label.size = 8 , bracket.size = 0.5) +
+    geom_jitter(aes(color = SampleName), width = 0.08, size = 4.5, alpha = 0.8, show.legend = FALSE) +
+    stat_pvalue_manual(stat_test_dps, label = " {p.signif}", label.size = 6 , bracket.size = 0.5) +
     guides(fill = guide_legend(override.aes = list(size = 10))) +
-    # scale_fill_grey(start = 0.3, end = 0.9) + 
-    # scale_color_grey(start = 0.3, end = 0.9) 
-    scale_fill_manual(values = c( "limegreen", "violet", "turquoise")) +
-    scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
+    scale_fill_grey(start = 0.3, end = 0.9) +
+    scale_color_grey(start = 0.3, end = 0.9)
+    # scale_fill_manual(values = c( "limegreen", "violet", "turquoise")) +
+    # scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
                                   "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a"))
 
 
@@ -1002,18 +1002,18 @@ alpha_df |>
     ggplot(aes(x = Fungicide.use, y = Value)) +
     geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = dps)) +
     facet_wrap(~Index, scales = "free_y") +
-    xlab("Days-Post-Fungicides") + 
+    xlab("Fungicide-Use") + 
     ylab("Alpha-Diversity") +
     theme(
         legend.position = "right", 
-        legend.title = element_text(size = 16, face = "bold", color = "black"),
-        legend.text = element_text(size = 14, face = "plain", color = "black"),
-        strip.text = element_text(size = 15, face = "bold", color = "black"),
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20, face = "plain", color = "black"),
+        strip.text = element_text(size = 20, face = "bold", color = "black"),
         strip.background = element_rect(fill = "lightgray", color = "gray50"), 
-        axis.title.x = element_text(size = 20, colour = "black", face = "bold"),
-        axis.title.y = element_text(size = 20, colour = "black", face = "bold"),
-        axis.text.x =  element_text(size = 16, color = "black", face = "bold"),
-        axis.text.y = element_text(size = 14, color = "black", face = "bold"),
+        axis.title.x = element_text(size = 23, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 23, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
         panel.background = element_rect(fill = "gray90"),
         panel.grid.major = element_line(color = "gray80"), 
         panel.grid.minor = element_line(color = "gray90")) + 
@@ -1096,31 +1096,37 @@ ExplainedVariance <- eig / sum(eig)
 ExplainedVariance <- round(ExplainedVariance * 100, 1)
 
 # PCoAPlots in Bray-Curtis
+# ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, shape = dps)) +
 ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = dps)) +
-    geom_point(size = 8, alpha = 0.7) +
-    geom_text(aes(label = SampleName), vjust = -1.3, size = 4) + 
+    geom_point(size = 13, alpha = 0.7) +
+    geom_text(aes(label = SampleName), vjust = -1.5, size = 5, color = "black") + 
     labs(caption = "PCoA with Bray-Curtis") +
-    xlab(paste0("PCoA1 (", ExplainedVariance[1], "%)")) +
-    ylab(paste0("PCoA2 (", ExplainedVariance[2], "%)")) +
+    xlab(paste0("PCoA 1 (", ExplainedVariance[1], "%)")) +
+    ylab(paste0("PCoA 2 (", ExplainedVariance[2], "%)")) +
     theme_minimal(base_size = 16) +
     theme(
         legend.position = "right",
-        legend.title = element_text(size = 25, face = "bold",  colour = "#E91E63"),
-        legend.text = element_text(size = 25),
-        axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 1),
-        axis.title.y = element_text(size = 25, colour = "#E91E63", hjust = 0.5),
-        axis.text = element_text(size = 30, face = "bold", color = "black"),
-        plot.caption = element_text(size = 20, color = "gray20"),
-        title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
-    scale_color_brewer(palette = "Set1")
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20),
+        axis.title.x = element_text(size = 23, color = "black", vjust = 1),
+        # axis.title.x = element_text(size = 25, color = "#DC0000", vjust = 1),
+        axis.title.y = element_text(size = 23, color = "black", hjust = 0.5),
+        # axis.title.y = element_text(size = 25, color = "#DC0000", hjust = 0.5),
+        axis.text.x =  element_text(size = 20, color = "gray10", face = "bold"),
+        axis.text.y =  element_text(size = 20, color = "gray10", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray40"),
+        title = element_text(size = 25, face = "bold",  color = "black")) + 
+    guides(shape = guide_legend(override.aes = list(size = 8))) +
+    # scale_color_grey(start = 0.3, end = 0.9)
+    scale_color_manual(values = c( "limegreen", "violet", "turquoise"))
 
 
 # vegan::betadisper()による群内分散の検定  
 betadisper <- betadisper(bray_dist, group = pcoa_df$dps)
-permutest(betadisper, permutations = 999)
+permutest(betadisper, permutations = 1000)
 
 # PERMANOVAによる有意差検定
-adonis2(bray_dist ~ dps, data = pcoa_df, permutations = 999)
+adonis2(bray_dist ~ dps, data = pcoa_df, permutations = 1000)
 
 
 cat(crayon::bgGreen("  Processing of plotqualityprofile is complete  "))
@@ -1877,9 +1883,11 @@ f.mahattan
 
 
 
+
 # DESeq2 ------------------------------------
 library(DESeq2)
 library(ggplot2)
+
 
 ## No Taxa Filtering -------------------------
 
@@ -1909,6 +1917,7 @@ write.csv(as(FungicideUse_res, "data.frame"),
 
 ### 0.01よりもpadjが小さいASVsをFiltering → 有意な差があるものをFiltering
 FungicideUse_sigtab = FungicideUse_res[which(FungicideUse_res$padj < 0.01), ] 
+
 
 dim(FungicideUse_sigtab)
 
@@ -1999,10 +2008,10 @@ colors_31 <- c("#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
                "#8BC34A", "#FF5722", "#8E24AA", "#795548", "#9C27B0", "#3F51B5", "#4CAF50", 
                "#FF9800", "#E91E63", "#CDDC39")
 
-##### Y is Family ---------------------------
-###### log2 FoldChange ---------------------
+#### X is Family ---------------------------
 
-#### in Phylum Colors 
+# log2 FoldChange 
+# in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log2FoldChange), color = Phylum, shape = Sign)) +
     geom_point(size = 7, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2034,8 +2043,9 @@ ggsave(filename = "Fng_DESeq2_Family_log2FoldChange_ColorPhylum_sigtab_Plots.png
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-###### log10 Value ------------------------------
-#### in Phylum Colors 
+
+# log10 Value
+# in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2067,14 +2077,14 @@ ggsave(filename = "Fng_DESeq2_Family_log10Value_ColorPhylum_sigtab_Plots.png", p
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-#### Legend Plots in Phylum level
 
+
+# Legend Plots in Phylum level
 library(ggpubr)
 library(cowplot)
 
-#### 余白の調整は難しいため、スクショで対応
-
-#### Phylum Level
+# 余白の調整は難しいため、スクショで対応
+# Phylum Level
 ggdraw(
     get_legend(
         ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum)) +
@@ -2095,7 +2105,7 @@ ggdraw(
                 color = guide_legend(override.aes = list(size = 10))
             )))
 
-#### Family Level
+# Family Level
 ggdraw(
     get_legend(
         ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Family)) +
@@ -2129,9 +2139,9 @@ ggdraw(get_legend(
 
 
 
-###### Value -------------------------------------
+#### Value -------------------------------------
 
-#### in Phylum Colors 
+# in Phylum Colors 
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2166,28 +2176,33 @@ ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = las
 
 
 
-##### X is Genus ----------------------------
+#### X is Genus ----------------------------
 
-###### log2 FoldChange ----------------------------
-
-####  Coloring at Family 
+# log2 FoldChange
+# Coloring at Family 
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log2FoldChange), color = Family, shape = Sign)) +
-    geom_point(size = 10, alpha = 0.7) +
-    geom_text(aes(label = ASV), vjust = -1, size = 6) + 
+    geom_point(size = 8, alpha = 0.7) +
+    geom_text(aes(label = ASV), vjust = -1, size = 4) + 
     scale_color_manual(values = colors_21) +
     theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
     scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
     ylab("log2FoldChange") +
     xlab("Genus") +
-    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
-          axis.title.y = element_text(size = 25, colour = "#E91E63"),
-          axis.text = element_text(size = 18, face = "bold", color = "black"),
-          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
-          panel.grid.minor = element_blank(),
-          legend.position = c(x=0.5, y=0.9),
-          plot.caption = element_text(size = 15, color = "gray20")) +
-    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
-         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Family level") +
+    theme(
+        legend.position = "right", 
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20, face = "plain", color = "black"),
+        strip.text = element_text(size = 20, face = "bold", color = "black"),
+        strip.background = element_rect(fill = "lightgray", color = "gray50"), 
+        axis.title.x = element_text(size = 23, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 23, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 12, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) + 
+    # labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+    #      caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Family level") +
     guides(
         color = "none",
         size = "none",
@@ -2195,49 +2210,94 @@ ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log2FoldChange), color = Fami
         shape = guide_legend(override.aes = list(size = 5),
                              title.theme = element_text(face = "bold", size = 20)
         ))
+    
+        # axis.title.x = element_text(size = 25, color = "black", vjust = 3),
+        #   axis.title.y = element_text(size = 25, color = "black"),
+        #   axis.text = element_text(size = 18, face = "bold", color = "black"),
+        #   strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+        #   panel.grid.minor = element_blank(),
+        #   legend.position = c(x=0.5, y=0.9),
+        #   plot.caption = element_text(size = 15, color = "gray20")) +
+    
 
 
-ggsave(filename = "DESeq2_Genus_log2FoldChange_ColorFamily_sigtab_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+# ggsave(filename = "DESeq2_Genus_log2FoldChange_ColorFamily_sigtab_Plots.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-###### log10 Value -------------------------------
-
-
-#### Coloring at Family
+# log10 Value
+# Coloring at Family
 ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), color = Family, shape = Sign)) +
     geom_point(size = 8, alpha = 0.6) +
-    geom_text(aes(label = ASV), vjust = -1, size = 5) + 
+    geom_text(aes(label = ASV), vjust = -0.6, size = 5) + 
     scale_color_manual(values = colors_21) +
-    theme(axis.text.x = element_text(angle = 80, hjust = 0.2, vjust = 0.28)) +
     scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
     ylab("log10 Value") +
     xlab("Genus") +
-    theme(axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
-          axis.title.y = element_text(size = 25, colour = "#E91E63"),
-          axis.text = element_text(size = 13, face = "bold", color = "black"),
-          strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
-          panel.grid.minor = element_blank(),
-          legend.position = c(x=0.65, y=0.9),
-          plot.caption = element_text(size = 15, color = "gray20")) +
-    labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
-         caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Family level") +
-    guides(
-        color = "none",
-        size = "none",
-        alpha = "none",
-        shape = guide_legend(override.aes = list(size = 5),
-                             title.theme = element_text(face = "bold", size = 20)
-        ))
+    theme(
+        # legend.position = "right", 
+        legend.position = "none", 
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20, face = "plain", color = "black"),
+        strip.text = element_text(size = 20, face = "bold", color = "black"),
+        strip.background = element_rect(fill = "lightgray", color = "gray50"), 
+        axis.title.x = element_text(size = 23, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 23, colour = "black", face = "bold"),
+        axis.text.x =  element_text(angle = 90, hjust = 0.2, vjust = 0.28, size = 12, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) + 
+    scale_color_grey(start = 0.3, end = 0.9)
+
+        
+        # axis.title.x = element_text(size = 25, colour = "#E91E63", vjust = 3),
+        #   axis.title.y = element_text(size = 25, colour = "#E91E63"),
+        #   axis.text = element_text(size = 13, face = "bold", color = "black"),
+        #   strip.text = element_text(size = 20, face = "bold.italic", color = "black"),
+        #   panel.grid.minor = element_blank(),
+        #   legend.position = c(x=0.65, y=0.9),
+        #   plot.caption = element_text(size = 15, color = "gray20")) +
+    
+    # labs(shape = "Enriched Circle or Depleted Triangle in FungicideUse",
+    #      caption = "Differential Abundunce in Comparison with and without Fungicide and Coloring at Family level") +
+    # guides(
+    #     color = "none",
+    #     size = "none",
+    #     alpha = "none",
+    #     shape = guide_legend(override.aes = list(size = 5),
+    #                          title.theme = element_text(face = "bold", size = 20)
+    #     ))
+
+# 250806_Black&White Colour
+ggplot(FungicideUse_sigtab, aes(x = Genus, y = abs(log10value), shape = Sign)) +
+    geom_point(size = 10, alpha = 0.6) +
+    geom_text(aes(label = ASV), vjust = -0.6, size = 8) + 
+    scale_shape_manual(values = c("Enriched" = 16, "Depleted" = 17)) +  
+    ylab("log10 Value") +
+    xlab("Genus") +
+    theme(
+        legend.position = "none", 
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20, face = "plain", color = "black"),
+        strip.text = element_text(size = 20, face = "bold", color = "black"),
+        strip.background = element_rect(fill = "lightgray", color = "gray50"), 
+        axis.title.x = element_text(size = 23, color = "black", face = "bold"),
+        axis.title.y = element_text(size = 23, color = "black", face = "bold"),
+        # axis.text.x =  element_text(angle = 90, hjust = 0.2, vjust = 0.28, size = 12, color = "black", face = "bold"),
+        axis.text.x =  element_blank(), 
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) 
+
+# ggsave(filename = "DESeq2_Genus_log10Value_ColorFamily_sigtab_Plots.png", plot = last_plot(),
+#        width = 4160, height = 3210, dpi = 300, units = "px",
+#        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-ggsave(filename = "DESeq2_Genus_log10Value_ColorFamily_sigtab_Plots.png", plot = last_plot(),
-       width = 4160, height = 3210, dpi = 300, units = "px",
-       path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
-
-
-#### in Phylum Colors & value
+# in Phylum Colors & value
 ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2269,14 +2329,11 @@ ggsave(filename = "DESeq2_Family_Value_ColorPhylum_sigtab_Plots.png", plot = las
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-
-
-###### Legend Plots ------------------------------
-
+# Legend Plots
 library(ggpubr)
 library(cowplot)
 
-#### 余白の調整は難しいため、スクショで対応
+# 余白の調整は難しいため、スクショで対応
 ggdraw(
     get_legend(
         ggplot(FungicideUse_sigtab, aes(x = Family, y = abs(log10value), color = Phylum)) +
@@ -2299,23 +2356,25 @@ ggdraw(
 
 
 
-#### Plots res ---------------------------------
+
+
+### Plots res ---------------------------------
 
 
 FungicideUse_res$log10value <- -log10(FungicideUse_res$padj)
 FungicideUse_res$Sign <- ifelse(FungicideUse_res$log2FoldChange < 0, "Enriched", "Depleted")
 FungicideUse_res$ASV <- rownames(FungicideUse_res)
 
-### log2FoldChangeの通常値変換
+# log2FoldChangeの通常値変換
 FungicideUse_res$value <- 2^FungicideUse_res$log2FoldChange
 
 
 
-#### 行名をASV列として、追加し、順番を変更
+# 行名をASV列として、追加し、順番を変更
 FungicideUse_res <- FungicideUse_res |> 
     select(ASV, log10value, log2FoldChange, value, Sign, everything())
 
-### sigtabのcsv保存
+# sigtabのcsv保存
 write.csv(FungicideUse_res,
           file = "~/Documents/RStudio/Novogene/250503/export_csv/FungicideUse_res_no_taxa_filtering.csv",
           row.names = FALSE)
@@ -2326,7 +2385,7 @@ unique(FungicideUse_res$Family)
 unique(FungicideUse_res$Genus)
 
 
-### Family数に応じて、Colorを設定
+# Family数に応じて、Colorを設定
 colors_40 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF",
                "#999999", "#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
                "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
@@ -2338,8 +2397,8 @@ colors_29 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33",
                "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D",
                "#666666", "#8C564B", "#C49C94", "#D62728", "#9467BD")
 
-### log10 Value Plots in Family Colors
-### → 範囲が広すぎて、Plotが見にくいため、sigtabを使用すること
+# log10 Value Plots in Family Colors
+# → 範囲が広すぎて、Plotが見にくいため、sigtabを使用すること
 ggplot(FungicideUse_res, aes(x = Family, y = abs(log10value), color = Phylum, shape = Sign)) +
     geom_point(size = 6, alpha = 0.6) +
     geom_text(aes(label = ASV), vjust = -1, size = 4) + 
@@ -2368,6 +2427,8 @@ ggplot(FungicideUse_res, aes(x = Family, y = abs(log10value), color = Phylum, sh
 ggsave(filename = "DESeq2_Family_log10Value_ColorFamily_res_Family_Plots.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
+
+
 
 
 # ASV Abundunce Plots： -----------------------------------

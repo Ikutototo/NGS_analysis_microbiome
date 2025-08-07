@@ -12,6 +12,7 @@ ls()
 rm(list = ls())
 dev.off()
 
+
 # load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/PhyloseqData_Bacteria.RData")
 load("~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/RData/phyloseq_Bacteria/Output/250728_PhyloseqData_Bacteria.RData")
 
@@ -349,32 +350,7 @@ write.csv(data.frame(Sequence = refseq(PhyseqData)[taxa_names(subset_taxa(Physeq
           file = "~/Documents/RStudio/Novogene/250503/export_csv/Bryobacter_sequences.csv", row.names = FALSE)
 
 
-
-### Others --------------------------------
-
-
-# prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
-# ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
-
-# Remove taxa not seen more than 3 times in at least 20% of the samples. This protects against an OTU with small mean & trivially large C.V.
-# filter_taxa(PhyseqData, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
-
-
-# Standardize abundances to the median sequencing depth
-# sample間で異なるリード数(シーケンス深度)を一致させるため
-# total = median(sample_sums(physeqData))
-# standf = function(x, t=total) round(t * (x / sum(x)))
-# physeqData_sd = transform_sample_counts(physeqData, standf)
-
-
-# Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
-# physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
-
-
-
-# FilteringMethods --------------------------
-## RelativeAbundunce -------------------------
-### Color_Setting -----------------------------
+# RelativeAbundunce -------------------------
 
 library(phyloseq)
 library(ggplot2)
@@ -382,6 +358,8 @@ library(cowplot)
 library(dplyr)
 library(scales)
 
+
+# Color_Setting
 colors_34 <- c(
     "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", 
     "#e6ab02", "#a6761d", "#666666", "#8dd3c7", "#ffffb3",
@@ -417,7 +395,7 @@ colors_41 <- c("turquoise","sienna","tomato","peru","blue3","coral2","firebrick"
                "pink","navy","pink3","lawngreen","pink4","lightskyblue")
 
 
-### Phylum Level -------------------------------
+## Phylum Level -------------------------------
 
 PhyseqData_Phylum <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> 
@@ -437,6 +415,7 @@ Descending_Phylum <- PhyseqData_Phylum |>
     pull(Phylum)
 
 PhyseqData_Phylum$Phylum <- factor(PhyseqData_Phylum$Phylum, levels = Descending_Phylum)
+colnames(PhyseqData_Phylum)
 
 ggplot(PhyseqData_Phylum, aes(x = dps, y = Abundance, fill = Phylum)) + 
     geom_bar(stat = "identity", position = "fill") + # position = "fill" → 相対存在量への変換
@@ -489,7 +468,48 @@ ggsave(filename = "Relative_abundance_Phylum_SampleName.png", plot = last_plot()
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
 
-### Class Level -------------------------------
+
+### flextable::flextable() --------------------
+# 250809_Table(Phylum)
+library(flextable)
+
+table_df <- PhyseqData_Phylum |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Phylum) |> 
+    group_by(Phylum, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+    
+flextable::flextable(as.data.frame(table_df))
+
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+dplyr::filter(`0days(%)` > 1)
+
+Ascending_Phylum <- PhyseqData_Phylum |> 
+    group_by(Phylum)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Phylum)
+
+table_df$Phylum <- factor(table_df$Phylum, levels = Ascending_Phylum)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Phylum)
+
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
+## Class Level -------------------------------
 
 PhyseqData_Class <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> 
@@ -550,9 +570,53 @@ ggsave(filename = "Relative_abundance_Class_SampleName.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
+### flextable::flextable() --------------------
+# 250809_Table(Class)
+library(flextable)
+
+PhyseqData_Class <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Class")  |>                         # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Class))
+
+table_df <- PhyseqData_Class |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Class) |> 
+    group_by(Class, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Class <- PhyseqData_Class |> 
+    group_by(Class)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Class)
+
+table_df$Class <- factor(table_df$Class, levels = Ascending_Class)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Class)
 
 
-### Order Level -------------------------------
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
+
+## Order Level -------------------------------
 
 PhyseqData_Order <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> 
@@ -622,8 +686,53 @@ ggsave(filename = "Relative_abundance_Order_SampleName.png", plot = last_plot(),
        width = 2800, height = 2520, dpi = 300, units = "px",
        path = "~/Documents/RStudio/Novogene/250503/NGS_analysis_microbiome/png")
 
+### flextable::flextable() --------------------
+# 250809_Table(Order)
+library(flextable)
 
-### Family Level  -----------------------------
+PhyseqData_Order <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Order")  |>                         # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Order))
+
+table_df <- PhyseqData_Order |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Order) |> 
+    group_by(Order, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Order <- PhyseqData_Order |> 
+    group_by(Order)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Order)
+
+table_df$Order <- factor(table_df$Order, levels = Ascending_Order)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Order)
+
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
+
+## Family Level  -----------------------------
 
 PhyseqData_Family <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> 
@@ -714,7 +823,54 @@ ggdraw(get_legend(
         )
 ))
 
-### Genus Level  ------------------------------
+### flextable::flextable() --------------------
+# 250809_Table(Family)
+library(flextable)
+
+PhyseqData_Family <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Family")  |>                         # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Family))
+
+table_df <- PhyseqData_Family |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Family) |> 
+    group_by(Family, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Family <- PhyseqData_Family |> 
+    group_by(Family)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Family)
+
+table_df$Family <- factor(table_df$Family, levels = Ascending_Family)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Family)
+
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
+
+
+
+## Genus Level  ------------------------------
 PhyseqData_Genus <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> 
     tax_glom(taxrank = "Genus") |> # Genusで統合                     
@@ -796,6 +952,50 @@ ggdraw(get_legend(
         )
 ))
 
+### flextable::flextable() --------------------
+# 250809_Table(Genus)
+library(flextable)
+
+PhyseqData_Genus <- PhyseqData  |> 
+    subset_taxa(Kingdom == "Bacteria") |> 
+    tax_glom(taxrank = "Genus")  |>                         # agglomerate at phylum level
+    transform_sample_counts(function(x) {x/sum(x)} )  |>    # Transform to relative abundance
+    psmelt()  |>                                            # Melt to long format
+    filter(Abundance > 0.01)  |>                            # Filter out low(>1%) abundance taxa
+    arrange(desc(Genus))
+
+table_df <- PhyseqData_Genus |> 
+    dplyr::select(OTU, Sample, Abundance, Fungicide.use, dps, Genus) |> 
+    group_by(Genus, dps) |> 
+    summarise(mean_abundance = mean(Abundance, na.rm = TRUE)*100, .groups = "drop")  |> 
+    tidyr::pivot_wider(names_from = dps, values_from = mean_abundance, names_sort = TRUE)
+
+colnames(table_df) <- sub("^0$", "0days(%)", colnames(table_df))
+colnames(table_df) <- sub("^3$", "3days(%)", colnames(table_df))
+colnames(table_df) <- sub("^7$", "7days(%)", colnames(table_df))
+
+# 相対存在量 1% Filtering
+table_df <- table_df |> 
+    dplyr::filter(`0days(%)` > 1)
+
+Ascending_Genus <- PhyseqData_Genus |> 
+    group_by(Genus)  |> 
+    summarise(total_abundance = sum(Abundance, na.rm = TRUE))  |> 
+    arrange(desc(total_abundance))  |> 
+    pull(Genus)
+
+table_df$Genus <- factor(table_df$Genus, levels = Ascending_Genus)
+colnames(table_df)
+
+table_df <- table_df |> arrange(Genus)
+
+
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    flextable::bold(part = "header")
 
 
 ## TaxaAbundunce -----------------------------
@@ -1771,7 +1971,7 @@ library(tidyverse)
 library(ggpubr)
 
 alpha_long <- alpha_df |> 
-    dplyr::select(Sample.Name, Observed, Shannon, Simpson, dps) |> 
+    dplyr::select(Sample.Name, Observed, Shannon, Simpson, dps, Fungicide.use) |> 
     pivot_longer(cols = c(Observed, Shannon, Simpson),
                  names_to = "Index",
                  values_to = "Value") |> 
@@ -1809,25 +2009,80 @@ alpha_df |>
     ylab("Alpha-Diversity") +
     theme(
         legend.position = "right", 
-        legend.title = element_text(size = 16, face = "bold", color = "black"),
-        legend.text = element_text(size = 14, face = "plain", color = "black"),
-        strip.text = element_text(size = 15, face = "bold", color = "black"),
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20, face = "plain", color = "black"),
+        strip.text = element_text(size = 20, face = "bold", color = "black"),
         strip.background = element_rect(fill = "lightgray", color = "gray50"), 
-        axis.title.x = element_text(size = 20, colour = "black", face = "bold"),
-        axis.title.y = element_text(size = 20, colour = "black", face = "bold"),
-        axis.text.x =  element_text(size = 16, color = "black", face = "bold"),
-        axis.text.y = element_text(size = 14, color = "black", face = "bold"),
+        axis.title.x = element_text(size = 23, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 23, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
         panel.background = element_rect(fill = "gray90"),
         panel.grid.major = element_line(color = "gray80"), 
         panel.grid.minor = element_line(color = "gray90")) + 
-    geom_jitter(aes(color = Sample.Name), width = 0.08, size = 3, alpha = 0.8, show.legend = FALSE) +
+    geom_jitter(aes(color = Sample.Name), width = 0.08, size = 4.5, alpha = 0.8, show.legend = FALSE) +
     stat_pvalue_manual(stat_test_dps, label = " {p.signif}", label.size = 8 , bracket.size = 0.5) +
     guides(fill = guide_legend(override.aes = list(size = 10))) +
-    # scale_fill_grey(start = 0.3, end = 0.9) + 
-    # scale_color_grey(start = 0.3, end = 0.9) 
+    # scale_fill_grey(start = 0.3, end = 0.9) +
+    # scale_color_grey(start = 0.3, end = 0.9)
     scale_fill_manual(values = c( "limegreen", "violet", "turquoise")) +
     scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
                                   "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a"))
+
+
+stat_test_Fungicide_use <- compare_means(
+    Value ~ Fungicide.use,
+    data = alpha_long,
+    method = "wilcox.test",
+    label = "p.format",
+    group.by = "Index"
+)
+
+
+stat_test_Fungicide_use <- stat_test_Fungicide_use  |> 
+    group_by(Index)  |> 
+    mutate(
+        y.position = seq(
+            from = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 1.05,
+            by = max(alpha_long$Value[alpha_long$Index == dplyr::first(Index)], na.rm = TRUE) * 0.05,
+            length.out = n()
+        )
+    )  |> 
+    ungroup()
+
+alpha_df |> 
+    dplyr::select(Sample.Name, Observed, Shannon, Simpson, dps, Fungicide.use) |> 
+    pivot_longer(cols = c(Observed, Shannon, Simpson),
+                 names_to = "Index",
+                 values_to = "Value") |> 
+    ggplot(aes(x = Fungicide.use, y = Value)) +
+    geom_boxplot(width = 0.5, varwidth = TRUE, aes(fill = dps)) +
+    facet_wrap(~Index, scales = "free_y") +
+    xlab("Fungicide-Use") + 
+    ylab("Alpha-Diversity") +
+    theme(
+        legend.position = "right", 
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
+        legend.text = element_text(size = 20, face = "plain", color = "black"),
+        strip.text = element_text(size = 20, face = "bold", color = "black"),
+        strip.background = element_rect(fill = "lightgray", color = "gray50"), 
+        axis.title.x = element_text(size = 23, colour = "black", face = "bold"),
+        axis.title.y = element_text(size = 23, colour = "black", face = "bold"),
+        axis.text.x =  element_text(size = 20, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 20, color = "black", face = "bold"),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "gray80"), 
+        panel.grid.minor = element_line(color = "gray90")) + 
+    geom_jitter(aes(color = Sample.Name), width = 0.08, size = 4.5, alpha = 0.8, show.legend = FALSE) +
+    stat_pvalue_manual(stat_test_Fungicide_use, label = " {p.signif}", label.size = 8 , bracket.size = 0.5) +
+    guides(fill = guide_legend(override.aes = list(size = 10))) +
+    # scale_fill_grey(start = 0.3, end = 0.9) +
+    # scale_color_grey(start = 0.3, end = 0.9)
+    scale_fill_manual(values = c( "limegreen", "violet", "turquoise")) +
+    scale_color_manual(values = c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F", "#8491B4",
+                                  "#91D1C2", "#DC0000", "#7E6148", "#B09C85", "#FFDC91", "#e7298a"))
+
+
 
 
 
@@ -1898,24 +2153,30 @@ ExplainedVariance <- eig / sum(eig)
 ExplainedVariance <- round(ExplainedVariance * 100, 1)
 
 # PCoAPlots in Bray-Curtis
-ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = dps)) +
-    geom_point(size = 8, alpha = 0.7) +
-    geom_text(aes(label = Sample.Name), vjust = -1.3, size = 4) + 
+ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, shape = dps)) +
+# ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = dps)) +
+    geom_point(size = 13, alpha = 0.7) +
+    geom_text(aes(label = Sample.Name), vjust = -1.5, size = 5, color = "black") + 
     labs(caption = "PCoA with Bray-Curtis") +
-    xlab(paste0("PCoA1 (", ExplainedVariance[1], "%)")) +
-    ylab(paste0("PCoA2 (", ExplainedVariance[2], "%)")) +
+    xlab(paste0("PCoA 1 (", ExplainedVariance[1], "%)")) +
+    ylab(paste0("PCoA 2 (", ExplainedVariance[2], "%)")) +
     theme_minimal(base_size = 16) +
     theme(
         legend.position = "right",
-        legend.title = element_text(size = 20, face = "bold",  colour = "black"),
+        legend.position = "none",
+        legend.title = element_text(size = 25, face = "bold", color = "black"),
         legend.text = element_text(size = 20),
-        axis.title.x = element_text(size = 20, colour = "black", vjust = 1),
-        axis.title.y = element_text(size = 20, colour = "black", hjust = 0.5),
-        axis.text = element_text(size = 15, face = "bold", color = "black"),
-        plot.caption = element_text(size = 20, color = "gray20"),
-        title = element_text(size = 25, face = "bold",  colour = "#E91E63")) + 
-    guides(fill = guide_legend(override.aes = list(size = 10))) +
-    scale_color_manual(values = c( "limegreen", "violet", "turquoise"))
+        axis.title.x = element_text(size = 23, color = "black", vjust = 1),
+        # axis.title.x = element_text(size = 25, color = "#DC0000", vjust = 1),
+        axis.title.y = element_text(size = 23, color = "black", hjust = 0.5),
+        # axis.title.y = element_text(size = 25, color = "#DC0000", hjust = 0.5),
+        axis.text.x =  element_text(size = 20, color = "gray10", face = "bold"),
+        axis.text.y =  element_text(size = 20, color = "gray10", face = "bold"),
+        plot.caption = element_text(size = 20, color = "gray40"),
+        title = element_text(size = 25, face = "bold",  color = "black")) + 
+    guides(shape = guide_legend(override.aes = list(size = 8))) +
+    scale_color_grey(start = 0.3, end = 0.9)
+    # scale_color_manual(values = c( "limegreen", "violet", "turquoise"))
 
 
 # vegan::betadisper()による群内分散の検定  
@@ -3402,5 +3663,25 @@ for (i in ID) {
 
 PhyseqData_RA <- transform_sample_counts(PhyseqData, function(x) 100* x / sum(x))
 PhyseqData_log10 <- transform_sample_counts(PhyseqData, log)
+
+
+
+
+# prune_samples(sample_sums(physeqData_???)>=20, physeqData_???)
+# ExportCSVData <- cbind(t(PhyseqData@otu_table@.Data), PhyseqData@tax_table@.Data)
+
+# Remove taxa not seen more than 3 times in at least 20% of the samples. This protects against an OTU with small mean & trivially large C.V.
+# filter_taxa(PhyseqData, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+
+
+# Standardize abundances to the median sequencing depth
+# sample間で異なるリード数(シーケンス深度)を一致させるため
+# total = median(sample_sums(physeqData))
+# standf = function(x, t=total) round(t * (x / sum(x)))
+# physeqData_sd = transform_sample_counts(physeqData, standf)
+
+
+# Filter the taxa using a cutoff of 3.0 for the Coefficient of Variation
+# physeqData_cv = filter_taxa(PhyseqData_???, function(x) sd(x)/mean(x) > 3.0, TRUE)
 
 

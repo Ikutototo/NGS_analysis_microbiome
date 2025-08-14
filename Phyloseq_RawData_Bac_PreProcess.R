@@ -489,6 +489,7 @@ ggplot(PhyseqData_Phylum, aes(x = Sample.Name, y = Abundance, fill = Phylum)) +
 ### flextable::flextable() --------------------
 # 250809_Table(Phylum)
 library(flextable)
+library(dplyr)
 
 PhyseqData_Phylum <- PhyseqData  |> 
     subset_taxa(Kingdom == "Bacteria") |> 
@@ -529,10 +530,28 @@ dplyr::filter(`0days(%)` > 0.1)
 
 flextable::flextable(table_df) |> 
     align(align = "center", part = "all") |>
-    set_formatter(`0days(%)` = function(x) sprintf("%.1f", x)) |>
-    set_formatter(`3days(%)` = function(x) sprintf("%.1f", x)) |>
-    set_formatter(`7days(%)` = function(x) sprintf("%.1f", x)) |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.3f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.3f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.3f", x)) |>
     flextable::bold(part = "header")
+
+# 増減をカラーで表現
+flextable::flextable(table_df) |> 
+    align(align = "center", part = "all") |>
+    set_formatter(`0days(%)` = function(x) sprintf("%.3f", x)) |>
+    set_formatter(`3days(%)` = function(x) sprintf("%.3f", x)) |>
+    set_formatter(`7days(%)` = function(x) sprintf("%.3f", x)) |>
+    flextable::bold(part = "header") |> 
+    color(
+    i = ~ `0days(%)` > `7days(%)`,
+    j = "Phylum",
+    color = "red"
+  ) |>
+    color(
+    i = ~ `0days(%)` < `7days(%)`,
+    j = "Phylum",
+    color = "#1f78b4"
+  )
 
 unique(table_df$Phylum)
 length(unique(table_df$Phylum))
